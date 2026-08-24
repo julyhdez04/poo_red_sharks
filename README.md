@@ -1,5 +1,7 @@
 #  POO Red Sharks
 
+![Imagen del equipo](https://seeklogo.com/free-vector-logos/tiburones-rojos-de-veracruz.png)
+
 <p align="center">
   <b>Repositorio  de la Experiencia Educativa: Programación Orientada a Objetos</b>
 </p>
