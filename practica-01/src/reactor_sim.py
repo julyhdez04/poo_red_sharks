@@ -138,14 +138,14 @@ def main():
     lampara1 = Actuador("Lámpara de sala")
 
     # 3. Creación de dos objetos de la clase Sensor
-    medidor_caudal = Sensor(
-        nombre="Medidor de Caudal",
-        variable_fisica="Flujo Volumétrico",
+    medidor_temperatura = Sensor(
+    nombre="sensor de temperatura",
+        variable_fisica="temperatura",
         rango_min=0.0,
-        rango_max=120.0,
+        rango_max=150.0,
         sensibilidad=0.01,
         decimales_medicion=2,
-        unidad="L/min"
+        unidad="°C"
     )
 
     manometro = Sensor(
@@ -170,7 +170,7 @@ def main():
 
     # Diccionarios de mapeo para enlazar los comandos de texto con las instancias reales
     actuadores = {"bomba": bomba, "valvula": valvula, "lampara1": lampara1}
-    sensores = {"caudal": medidor_caudal, "manometro": manometro, "presiongas": presiongas}
+    sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presiongas": presiongas}
 
     # Bucle interactivo directo
     while True:
@@ -255,3 +255,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
