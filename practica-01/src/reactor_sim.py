@@ -59,6 +59,41 @@ class Actuador:
         return f"{self.nombre:<20} | Estado: {estado_str:<3} | Punto Op: {self.punto_operacion:>5.1f}% | Rango: [0.0% - 100.0%]"
 
 
+class ValvulaAlivio(Actuador):
+    """Actuador digital de alivio: 0 = OFF y 1 = ON."""
+
+    def __init__(self, nombre: str = "Válvula de Alivio"):
+        super().__init__(nombre)
+        self.rango_operacion_min = 0
+        self.rango_operacion_max = 1
+        self.punto_operacion = 0
+
+    def encender(self):
+        super().encender()
+        self.punto_operacion = 1
+
+    def apagar(self):
+        super().apagar()
+        self.punto_operacion = 0
+
+    def ajustar(self, valor: float):
+        """Permite únicamente los valores digitales 0 y 1."""
+        if valor in (0, 1):
+            if valor == 1:
+                self.encender()
+            else:
+                self.apagar()
+        else:
+            registrar_evento(
+                f"[⚠️ ERROR] {self.nombre} -> Valor {valor} inválido. "
+                "Solo se permite 0 (OFF) o 1 (ON)."
+            )
+
+    def info(self) -> str:
+        estado_str = "ON" if self.estado else "OFF"
+        return f"{self.nombre:<20} | Estado: {estado_str:<3} | Digital: {int(self.estado)} | Control: ON/OFF"
+
+
 # ==============================================================================
 # 2. CLASE SENSOR
 # ==============================================================================
@@ -136,6 +171,7 @@ def main():
     bomba = Actuador("Bomba de Agua")
     valvula = Actuador("Válvula de Control")
     lampara1 = Actuador("Lámpara de sala")
+    valvula_alivio = ValvulaAlivio()
 
     # 3. Creación de dos objetos de la clase Sensor
     medidor_temperatura = Sensor(
@@ -169,7 +205,12 @@ def main():
     )
 
     # Diccionarios de mapeo para enlazar los comandos de texto con las instancias reales
-    actuadores = {"bomba": bomba, "valvula": valvula, "lampara1": lampara1}
+    actuadores = {
+        "bomba": bomba,
+        "valvula": valvula,
+        "lampara1": lampara1,
+        "alivio": valvula_alivio,
+    }
     sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presiongas": presiongas}
 
     # Bucle interactivo directo
