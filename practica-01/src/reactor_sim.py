@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
 EE: Programación Orientada a Objetos (UV)
-Ejemplo de un Integrador v7: Panel HMI Estático con Limpieza de Pantalla y Registro de Eventos (Obtenido en clase)
-
 """
-
+#   Librerías usadas en el proyecto
 import os
 import random
 
