@@ -192,11 +192,11 @@ def main():
         unidad="Bar"
     )
     
-    presiongas = Sensor(
-        nombre="Presurómetro de Gas",
-        variable_fisica="Presión del Gas",
+    presion = Sensor(
+        nombre="Presurómetro Quimico",
+        variable_fisica="Presión Quimica",
         rango_min=0.0,
-        rango_max=10.0,
+        rango_max=15.0,
         sensibilidad=0.001, 
         decimales_medicion=3,
         unidad="Bar"
@@ -209,7 +209,7 @@ def main():
         "lampara1": lampara1,
         "alivio": valvula_alivio,
     }
-    sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presiongas": presiongas}
+    sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presion": presion}
 
     # Bucle interactivo directo
     while True:
@@ -279,13 +279,13 @@ def main():
         # Procesamiento del Comando: LEER
         elif comando == "leer":
             if len(partes) < 2:
-                registrar_evento("[⚠️ ERROR] Especifica el sensor. Uso: leer <caudal/manometro>")
+                registrar_evento("[⚠️ ERROR] Especifica el sensor. Uso: leer <caudal/manometro/presion>")
                 continue
             target = partes[1].lower()
             if target in sensores:
                 sensores[target].leer_valor_actual()
             else:
-                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: caudal, manometro")
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: caudal, manometro, presion")
 
         # Comando no reconocido
         else:
