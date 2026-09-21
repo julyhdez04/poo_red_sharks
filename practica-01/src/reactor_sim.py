@@ -195,6 +195,26 @@ def mostrar_interfaz_hmi(actuadores, sensores):
 
 
 # ==============================================================================
+# INTERLOCKS DE SEGURIDAD
+# ==============================================================================
+def aplicar_interlocks(reactor, bomba, valvula):
+    """
+    Si Temperatura > 85.0 C o Presion > 12.0 Bar, el sistema ignora cualquier
+    instruccion del operario y fuerza la Bomba al 100% y la Valvula de Alivio abierta.
+    """
+    if reactor.en_alarma():
+        if bomba.punto_operacion != 100.0 or not bomba.estado:
+            bomba.encender()
+            bomba.ajustar(100.0)
+            registrar_evento("[INTERLOCK] Límite de seguridad excedido: Bomba forzada al 100%.")
+        if valvula.punto_operacion != 1:
+            valvula.encender()
+            registrar_evento("[INTERLOCK] Límite de seguridad excedido: Válvula de Alivio forzada a ABIERTA.")
+        return True
+    return False
+
+
+# ==============================================================================
 # BUCLE INTERACTIVO PRINCIPAL
 # ==============================================================================
 def main():
@@ -242,9 +262,15 @@ def main():
 
     # Bucle interactivo directo
     while True:
+        # 0. Verificamos los interlocks de seguridad antes de cualquier otra cosa
+        en_alarma = aplicar_interlocks(reactor, bomba, valvula)
+
         # 1. Limpiamos la pantalla antes de volver a dibujar
         limpiar_pantalla()
-        
+
+        if en_alarma:
+            print(" [ALARMA DE SEGURIDAD ACTIVA: LÍMITES DE OPERACIÓN EXCEDIDOS] ")
+
         # 2. Dibujamos el HMI con los estados actualizados en memoria
         mostrar_interfaz_hmi(actuadores, sensores)
         
@@ -267,6 +293,12 @@ def main():
             continue
 
         comando = partes[0].lower()
+
+        # Bloqueo de comandos manuales sobre bomba/valvula durante interlock activo
+        if en_alarma and comando in ("ajustar", "apagar", "encender") and len(partes) >= 2:
+            if partes[1].lower() in ("bomba", "valvula"):
+                registrar_evento("[BLOQUEADO] Interlock activo: no se permite control manual de bomba/válvula.")
+                continue
 
         # Procesamiento del Comando: ENCENDER
         if comando == "encender":
