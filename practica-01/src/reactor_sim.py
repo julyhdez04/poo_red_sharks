@@ -93,7 +93,32 @@ class ValvulaAlivio(Actuador):
         estado_str = "ON" if self.estado else "OFF"
         return f"{self.nombre:<20} | Estado: {estado_str:<3} | Digital: {int(self.estado)} | Control: ON/OFF"
 
+# ==============================================================================
+# 1.5 CLASE REACTOR (Modelo Físico del Proceso)
+# ==============================================================================
+class Reactor:
+    """Modela el estado térmico y barométrico interno del reactor químico."""
 
+    def __init__(self):
+        self.temperatura = 25.0   # °C, arranca a temperatura ambiente
+        self.presion = 1.0        # Bar, arranca a presión atmosférica aprox.
+        self.limite_temp = 85.0   # °C, umbral de interlock
+        self.limite_presion = 12.0  # Bar, umbral de interlock
+
+    def actualizar(self, porcentaje_bomba: float):
+        """
+        Avanza un paso de simulación del reactor según la fórmula de estabilidad:
+        ΔT = (+1.5°C) - (0.05°C x %OperacionBomba)
+        La presión se acopla de forma simplificada al cambio de temperatura.
+        """
+        delta_t = 1.5 - (0.05 * porcentaje_bomba)
+        self.temperatura = max(0.0, self.temperatura + delta_t)
+        self.presion = max(0.0, self.presion + (delta_t * 0.08))
+        return delta_t
+
+    def en_alarma(self) -> bool:
+        """Indica si el reactor superó alguno de los límites de seguridad."""
+        return self.temperatura > self.limite_temp or self.presion > self.limite_presion
 # ==============================================================================
 # 2. CLASE SENSOR
 # ==============================================================================
