@@ -120,6 +120,22 @@ class Sensor:
         """Retorna una cadena con las especificaciones técnicas del sensor."""
         return f"{self.nombre:<20} | Var: {self.variable_fisica:<18} | Rango: [{self.rango_min:>4.1f} - {self.rango_max:>5.1f}] {self.unidad:<5} | Sensibilidad: {self.sensibilidad} | Dec: {self.decimales_medicion}"
 
+class SensorDinamico(Sensor):
+    def __init__(self, nombre, variable_fisica, rango_min, rango_max, sensibilidad, decimales_medicion, unidad, valor_inicial):
+        super().__init__(nombre, variable_fisica, rango_min, rango_max, sensibilidad, decimales_medicion, unidad)
+        self.valor_actual = valor_inicial
+
+        def leer_valor_actual(self) -> float:
+            valor_redondeado = round(self.valor_actual, self.decimales_medicion)
+            lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
+            registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
+            return valor_redondeado
+
+        def aplicar_delta(self, delta: float):
+            """Aplica la fórmula matemática y limita el valor a los rangos del sensor."""
+            self.valor_actual += delta
+            self.valor_actual = max(self.rango_min, min(self.valor_actual, self.rango_max))
+
 
 # ==============================================================================
 # INTERFAZ HMI (TABLERO DE CONTROL)
@@ -157,6 +173,7 @@ def mostrar_interfaz_hmi(actuadores, sensores):
     print("   • apagar <actuador>         (Ej: apagar valvula)")
     print("   • ajustar <actuador> <val>  (Ej: ajustar bomba 75.5)")
     print("   • leer <sensor>             (Ej: leer caudal  O  leer manometro)")
+    print("   • automatico                (Activa/Desactiva el modo automático de estabilidad)")
     print("   • terminar                  (Finaliza la simulación)")
     print("=" * 85)
 
@@ -166,35 +183,24 @@ def mostrar_interfaz_hmi(actuadores, sensores):
 # ==============================================================================
 def main():
     # 3. Creación de dos objetos de la clase Actuador
-    bomba = Actuador("Bomba de Agua")
-    valvula = Actuador("Válvula de Control")
-    lampara1 = Actuador("Lámpara de sala")
+    bomba = Actuador("Bomba de Enfriamiento")
     valvula_alivio = ValvulaAlivio()
 
     # 3. Creación de dos objetos de la clase Sensor
-    medidor_temperatura = Sensor(
-    nombre="sensor de temperatura",
+    medidor_temperatura = SensorDinamico(
+    nombre="Sensor de Temperatura",
         variable_fisica="temperatura",
         rango_min=0.0,
         rango_max=150.0,
         sensibilidad=0.01,
         decimales_medicion=2,
-        unidad="°C"
-    )
-
-    manometro = Sensor(
-        nombre="Manómetro Digital",
-        variable_fisica="Presión Hidráulica",
-        rango_min=0.0,
-        rango_max=10.0,
-        sensibilidad=0.001,
-        decimales_medicion=3,
-        unidad="Bar"
+        unidad="°C",
+        valor_inicial=25.0
     )
     
     presion = Sensor(
-        nombre="Presurómetro Quimico",
-        variable_fisica="Presión Quimica",
+        nombre="Manómetro de Presión",
+        variable_fisica="Presión",
         rango_min=0.0,
         rango_max=15.0,
         sensibilidad=0.001, 
@@ -205,11 +211,10 @@ def main():
     # Diccionarios de mapeo para enlazar los comandos de texto con las instancias reales
     actuadores = {
         "bomba": bomba,
-        "valvula": valvula,
-        "lampara1": lampara1,
         "alivio": valvula_alivio,
     }
-    sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presion": presion}
+    sensores = {"temperatura": medidor_temperatura, "manometro": presion}
+    modo_automatico = False
 
     # Bucle interactivo directo
     while True:
@@ -287,10 +292,26 @@ def main():
             else:
                 registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: caudal, manometro, presion")
 
+        #Procesamiento del Comando: MODO AUTOMÁTICO
+        elif comando == "automatico":
+            modo_automatico = not modo_automatico
+            estado = "ACTIVADO" if modo_automatico else "DESACTIVADO"
+            registrar_evento(f"[🔄 MODO AUTOMÁTICO] Sistema {estado}.")
+            if modo_automatico:
+                        # Fórmula: ΔT = (+1.5°C) - (0.05°C * % OperaciónBomba)
+                        operacion_bomba = actuadores["bomba"].punto_operacion
+                        delta_t = 1.5 - (0.05 * operacion_bomba)
+                        
+                        # Aplicar el cambio al sensor
+                        sensores["temperatura"].aplicar_delta(delta_t)
+                        
+                        # Registrar la acción dinámica
+                        registrar_evento(f"[⚙️ ESTABILIDAD] ΔT: {delta_t:+.2f}°C | Nueva Temp: {sensores['temperatura'].valor_actual:.2f}°C")
+              
+
         # Comando no reconocido
         else:
             registrar_evento(f"[⚠️ ERROR] Comando '{comando}' no reconocido.")
-
 
 if __name__ == "__main__":
     main()
