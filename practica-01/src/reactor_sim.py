@@ -96,6 +96,12 @@ class ValvulaAlivio(Actuador):
 # 2. CLASE SENSOR
 # ==============================================================================
 class Sensor:
+    # Tipos de falla simulables en el modo PRUEBAS
+    #   atascado     -> la lectura se congela en el último valor medido
+    #   saturado     -> la lectura se sale del rango físico del sensor
+    #   desconectado -> circuito abierto, no hay señal
+    FALLAS_VALIDAS = ("atascado", "saturado", "desconectado")
+
     def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str):
         # Atributos de especificación técnica del sensor
         self.nombre = nombre
@@ -105,6 +111,10 @@ class Sensor:
         self.sensibilidad = sensibilidad
         self.decimales_medicion = decimales_medicion
         self.unidad = unidad
+
+    # Atributos de estado para el modo pruebas
+        self.falla = None            # Falla inyectada (None = sensor sano)
+        self.valor_forzado = None    # Valor fijo forzado desde el modo PRUEBAS
 
     def leer_valor_actual(self) -> float:
         """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
