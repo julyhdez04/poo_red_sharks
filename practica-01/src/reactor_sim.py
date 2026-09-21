@@ -168,50 +168,41 @@ def mostrar_interfaz_hmi(actuadores, sensores):
 # ==============================================================================
 def main():
     # 3. Creación de dos objetos de la clase Actuador
-    bomba = Actuador("Bomba de Agua")
-    valvula = Actuador("Válvula de Control")
-    lampara1 = Actuador("Lámpara de sala")
-    valvula_alivio = ValvulaAlivio()
+        # --- Actuadores especificados en la práctica ---
+    bomba = Actuador("Bomba de Enfriamiento")   # 0-100 %, modulación proporcional
+    valvula = ValvulaAlivio()                   # digital 0/1
 
-    # 3. Creación de dos objetos de la clase Sensor
-    medidor_temperatura = Sensor(
-    nombre="sensor de temperatura",
-        variable_fisica="temperatura",
-        rango_min=0.0,
-        rango_max=150.0,
-        sensibilidad=0.01,
-        decimales_medicion=2,
-        unidad="°C"
+    # --- Sensores especificados en la práctica ---
+    termometro = Sensor(
+        nombre="Termopar de Reactor",
+        variable_fisica="Temperatura",
+        rango_min=0.0, rango_max=150.0,
+        sensibilidad=0.01, decimales_medicion=2, unidad="°C",
     )
 
     manometro = Sensor(
         nombre="Manómetro Digital",
-        variable_fisica="Presión Hidráulica",
-        rango_min=0.0,
-        rango_max=10.0,
-        sensibilidad=0.001,
-        decimales_medicion=3,
-        unidad="Bar"
-    )
-    
-    presiongas = Sensor(
-        nombre="Presurómetro de Gas",
-        variable_fisica="Presión del Gas",
-        rango_min=0.0,
-        rango_max=10.0,
-        sensibilidad=0.001, 
-        decimales_medicion=3,
-        unidad="Bar"
+        variable_fisica="Presión de Reactor",
+        rango_min=0.0, rango_max=15.0,
+        sensibilidad=0.001, decimales_medicion=3, unidad="Bar",
     )
 
-    # Diccionarios de mapeo para enlazar los comandos de texto con las instancias reales
+    caudalimetro = Sensor(
+        nombre="Caudalímetro",
+        variable_fisica="Flujo de Refrigerante",
+        rango_min=0.0, rango_max=50.0,
+        sensibilidad=0.1, decimales_medicion=1, unidad="L/min",
+    )
+
     actuadores = {
         "bomba": bomba,
         "valvula": valvula,
-        "lampara1": lampara1,
-        "alivio": valvula_alivio,
     }
-    sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presiongas": presiongas}
+    sensores = {
+        "temperatura": termometro,
+        "manometro": manometro,
+        "caudal": caudalimetro,
+    }
 
     # Bucle interactivo directo
     while True:
@@ -287,7 +278,7 @@ def main():
             if target in sensores:
                 sensores[target].leer_valor_actual()
             else:
-                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: caudal, manometro")
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: temperatura, manometro, caudal")
 
         # Comando no reconocido
         else:
