@@ -118,16 +118,57 @@ class Sensor:
         self.medido = False          # verifica si por lo menos hizo una lectura
         self.ultima_lectura = None   # Último valor medido (None = sin señal)
 
-    def leer_valor_actual(self) -> float:
-        """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
-        valor_simulado = random.uniform(self.rango_min, self.rango_max)
-        valor_redondeado = round(valor_simulado, self.decimales_medicion)
-        
-        # Formateamos la lectura con sus decimales y unidad correspondiente
-        lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
-        registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
-        return valor_redondeado
+    def medir(self):
+        """Genera una lectura simulada respetando las fallas inyectadas. No registra eventos."""
+        if self.falla == "desconectado":
+            valor = None
+        elif self.falla == "saturado":
+            valor = round(self.rango_max * 1.25, self.decimales_medicion)
+        elif self.falla == "atascado":
+            if self.ultima_lectura is None:
+                valor = round(random.uniform(self.rango_min, self.rango_max), self.decimales_medicion)
+            else:
+                valor = self.ultima_lectura
+        elif self.valor_forzado is not None:
+            valor = round(self.valor_forzado, self.decimales_medicion)
+        else:
+            valor = round(random.uniform(self.rango_min, self.rango_max), self.decimales_medicion)
 
+        self.medido = True
+        self.ultima_lectura = valor
+        return valor
+
+    def leer_valor_actual(self):
+        """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
+        valor = self.medir()
+        if valor is None:
+            registrar_evento(f"[📊 LECTURA] {self.nombre}: SIN SEÑAL (circuito abierto)")
+        else:
+            lectura_str = f"{valor:.{self.decimales_medicion}f} {self.unidad}"
+            registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
+        return valor
+
+    def inyectar_falla(self, tipo: str) -> bool:
+        """Inyecta una falla simulada en el sensor (solo modo PRUEBAS)."""
+        if tipo not in self.FALLAS_VALIDAS:
+            registrar_evento(f"[ERROR] Falla '{tipo}' no válida. Opciones: {', '.join(self.FALLAS_VALIDAS)}")
+            return False
+        self.falla = tipo
+        registrar_evento(f"[FALLA] {self.nombre} -> falla '{tipo}' inyectada")
+        return True
+
+    def forzar_valor(self, valor: float):
+        """Fuerza una lectura fija en el sensor para probar reacciones."""
+        self.valor_forzado = valor
+        registrar_evento(f"[FORZADO] {self.nombre} -> lectura forzada a {valor:.{self.decimales_medicion}f} {self.unidad}")
+
+    def reparar(self, registrar: bool = True):
+        """Retira la falla y el valor forzado."""
+        self.falla = None
+        self.valor_forzado = None
+        if registrar:
+            registrar_evento(f"[REPARADO] {self.nombre} -> falla/forzado retirado")
+    
     def info(self) -> str:
         """Retorna una cadena con las especificaciones técnicas del sensor."""
         return f"{self.nombre:<20} | Var: {self.variable_fisica:<18} | Rango: [{self.rango_min:>4.1f} - {self.rango_max:>5.1f}] {self.unidad:<5} | Sensibilidad: {self.sensibilidad} | Dec: {self.decimales_medicion}"
