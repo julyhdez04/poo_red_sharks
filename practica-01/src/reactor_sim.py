@@ -125,16 +125,16 @@ class SensorDinamico(Sensor):
         super().__init__(nombre, variable_fisica, rango_min, rango_max, sensibilidad, decimales_medicion, unidad)
         self.valor_actual = valor_inicial
 
-        def leer_valor_actual(self) -> float:
-            valor_redondeado = round(self.valor_actual, self.decimales_medicion)
-            lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
-            registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
-            return valor_redondeado
+    def leer_valor_actual(self) -> float:
+        valor_redondeado = round(self.valor_actual, self.decimales_medicion)
+        lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
+        registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
+        return valor_redondeado
 
-        def aplicar_delta(self, delta: float):
-            """Aplica la fórmula matemática y limita el valor a los rangos del sensor."""
-            self.valor_actual += delta
-            self.valor_actual = max(self.rango_min, min(self.valor_actual, self.rango_max))
+    def aplicar_delta(self, delta: float):
+        """Aplica la fórmula matemática y limita el valor a los rangos del sensor."""
+        self.valor_actual += delta
+        self.valor_actual = max(self.rango_min, min(self.valor_actual, self.rango_max))
 
 
 # ==============================================================================
@@ -297,17 +297,12 @@ def main():
             modo_automatico = not modo_automatico
             estado = "ACTIVADO" if modo_automatico else "DESACTIVADO"
             registrar_evento(f"[🔄 MODO AUTOMÁTICO] Sistema {estado}.")
-            if modo_automatico:
-                        # Fórmula: ΔT = (+1.5°C) - (0.05°C * % OperaciónBomba)
-                        operacion_bomba = actuadores["bomba"].punto_operacion
-                        delta_t = 1.5 - (0.05 * operacion_bomba)
-                        
-                        # Aplicar el cambio al sensor
-                        sensores["temperatura"].aplicar_delta(delta_t)
-                        
-                        # Registrar la acción dinámica
-                        registrar_evento(f"[⚙️ ESTABILIDAD] ΔT: {delta_t:+.2f}°C | Nueva Temp: {sensores['temperatura'].valor_actual:.2f}°C")
-              
+            continue
+        if modo_automatico:
+            operacion_bomba = actuadores["bomba"].punto_operacion
+            delta_t = 1.5 - (0.05 * operacion_bomba)
+            sensores["temperatura"].aplicar_delta(delta_t)
+            registrar_evento(f"[⚙️ ESTABILIDAD] ΔT: {delta_t:+.2f}°C | Nueva Temp: {sensores['temperatura'].valor_actual:.2f}°C")
 
         # Comando no reconocido
         else:
