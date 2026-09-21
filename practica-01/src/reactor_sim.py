@@ -123,7 +123,7 @@ class Reactor:
 # 2. CLASE SENSOR
 # ==============================================================================
 class Sensor:
-    def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str):
+    def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str, fuente=None):
         # Atributos de especificación técnica del sensor
         self.nombre = nombre
         self.variable_fisica = variable_fisica
@@ -132,11 +132,17 @@ class Sensor:
         self.sensibilidad = sensibilidad
         self.decimales_medicion = decimales_medicion
         self.unidad = unidad
+        # Función opcional que entrega el valor real del proceso (lazo cerrado).
+        # Si no se especifica, el sensor simula lecturas aleatorias dentro de su rango.
+        self.fuente = fuente
 
     def leer_valor_actual(self) -> float:
-        """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
-        valor_simulado = random.uniform(self.rango_min, self.rango_max)
-        valor_redondeado = round(valor_simulado, self.decimales_medicion)
+        """Lee el valor real del proceso (si hay fuente) o simula una lectura aleatoria."""
+        if self.fuente is not None:
+            valor_crudo = self.fuente()
+        else:
+            valor_crudo = random.uniform(self.rango_min, self.rango_max)
+        valor_redondeado = round(valor_crudo, self.decimales_medicion)
         
         # Formateamos la lectura con sus decimales y unidad correspondiente
         lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
@@ -192,6 +198,8 @@ def mostrar_interfaz_hmi(actuadores, sensores):
 # BUCLE INTERACTIVO PRINCIPAL
 # ==============================================================================
 def main():
+    # Modelo físico del proceso que alimenta las lecturas de los sensores
+    reactor = Reactor()
     # 3. Creación de dos objetos de la clase Actuador
         # --- Actuadores especificados en la práctica ---
     bomba = Actuador("Bomba de Enfriamiento")   # 0-100 %, modulación proporcional
@@ -203,6 +211,7 @@ def main():
         variable_fisica="Temperatura",
         rango_min=0.0, rango_max=150.0,
         sensibilidad=0.01, decimales_medicion=2, unidad="°C",
+        fuente=lambda: reactor.temperatura,
     )
 
     manometro = Sensor(
@@ -210,6 +219,7 @@ def main():
         variable_fisica="Presión de Reactor",
         rango_min=0.0, rango_max=15.0,
         sensibilidad=0.001, decimales_medicion=3, unidad="Bar",
+        fuente=lambda: reactor.presion,
     )
 
     caudalimetro = Sensor(
@@ -217,6 +227,7 @@ def main():
         variable_fisica="Flujo de Refrigerante",
         rango_min=0.0, rango_max=50.0,
         sensibilidad=0.1, decimales_medicion=1, unidad="L/min",
+        fuente=lambda: bomba.punto_operacion * 0.5,
     )
 
     actuadores = {
