@@ -115,6 +115,8 @@ class Sensor:
     # Atributos de estado para el modo pruebas
         self.falla = None            # Falla inyectada (None = sensor sano)
         self.valor_forzado = None    # Valor fijo forzado desde el modo PRUEBAS
+        self.medido = False          # verifica si por lo menos hizo una lectura
+        self.ultima_lectura = None   # Último valor medido (None = sin señal)
 
     def leer_valor_actual(self) -> float:
         """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
