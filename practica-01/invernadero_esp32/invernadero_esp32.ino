@@ -16,6 +16,19 @@ const int RESOLUCION_ADC_BITS = 12;          // 12 bits de resolucion
 const int RESOLUCION_ADC_MAX = 4095;         // 2^12 - 1
 const float VOLTAJE_REFERENCIA = 3.3;        // Voltaje de referencia del ESP32
 
+// --- Asignacion de pines de actuadores (PWM) ---
+const int PIN_VENTILADOR = 18;   // Motor DC, PWM
+const int PIN_LED_POTENCIA = 19; // LED de potencia, PWM
+
+// --- Configuracion de canales PWM (ledc) ---
+const int CANAL_PWM_VENTILADOR = 0;
+const int CANAL_PWM_LED = 1;
+const int FRECUENCIA_PWM = 5000;      // 5 kHz
+const int RESOLUCION_PWM_BITS = 8;    // Duty cycle de 0 a 255
+
+// --- Umbrales de control ---
+const float TEMPERATURA_LIMITE_VENTILADOR = 30.0;  // C
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -24,6 +37,13 @@ void setup() {
 
   pinMode(PIN_SENSOR_TEMPERATURA, INPUT);
   pinMode(PIN_SENSOR_LDR, INPUT);
+
+  // Configuracion de los canales PWM para ventilador y LED de potencia
+  ledcSetup(CANAL_PWM_VENTILADOR, FRECUENCIA_PWM, RESOLUCION_PWM_BITS);
+  ledcAttachPin(PIN_VENTILADOR, CANAL_PWM_VENTILADOR);
+
+  ledcSetup(CANAL_PWM_LED, FRECUENCIA_PWM, RESOLUCION_PWM_BITS);
+  ledcAttachPin(PIN_LED_POTENCIA, CANAL_PWM_LED);
 
   Serial.println("==============================================");
   Serial.println(" MICRO-INVERNADERO INTELIGENTE - ESP32");
@@ -49,9 +69,28 @@ int leerLuzAmbiental() {
   return analogRead(PIN_SENSOR_LDR);
 }
 
+void controlarVentilador(float temperatura) {
+  // Gestion termica: ventilador al 100% si la temperatura supera el limite
+  if (temperatura > TEMPERATURA_LIMITE_VENTILADOR) {
+    ledcWrite(CANAL_PWM_VENTILADOR, 255);  // 100% duty cycle
+  } else {
+    ledcWrite(CANAL_PWM_VENTILADOR, 0);
+  }
+}
+
+void controlarLedPotencia(int luz) {
+  // Gestion luminica: a menor luz (LDR), mayor duty cycle del LED (proporcional inverso)
+  int dutyCycle = map(luz, 0, RESOLUCION_ADC_MAX, 255, 0);
+  dutyCycle = constrain(dutyCycle, 0, 255);
+  ledcWrite(CANAL_PWM_LED, dutyCycle);
+}
+
 void loop() {
   float temperatura = leerTemperatura();
   int luz = leerLuzAmbiental();
+
+  controlarVentilador(temperatura);
+  controlarLedPotencia(luz);
 
   Serial.print("Temperatura: ");
   Serial.print(temperatura, 2);
