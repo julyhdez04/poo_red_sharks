@@ -287,7 +287,10 @@ def main():
 
         # 2. Dibujamos el HMI con los estados actualizados en memoria
         mostrar_interfaz_hmi(actuadores, sensores)
-        
+
+        if modo == "PRUEBAS":
+            print(" COMANDO ADICIONAL (Modo Pruebas): forzar <temperatura/presion> <valor>")
+
         try:
             # Solicitamos el comando de entrada al usuario
             entrada = input("Ingrese comando >> ").strip()
@@ -313,6 +316,30 @@ def main():
             if partes[1].lower() in ("bomba", "valvula"):
                 registrar_evento("[BLOQUEADO] Interlock activo: no se permite control manual de bomba/válvula.")
                 continue
+
+        # Procesamiento del Comando: FORZAR (solo disponible en Modo de Pruebas)
+        if comando == "forzar":
+            if modo != "PRUEBAS":
+                registrar_evento("[ERROR] El comando 'forzar' solo esta disponible en Modo de Pruebas.")
+                continue
+            if len(partes) < 3:
+                registrar_evento("[ERROR] Uso: forzar <temperatura/presion> <valor>")
+                continue
+            variable = partes[1].lower()
+            try:
+                valor_forzado = float(partes[2])
+            except ValueError:
+                registrar_evento("[ERROR] El valor forzado debe ser numerico.")
+                continue
+            if variable == "temperatura":
+                reactor.temperatura = valor_forzado
+                registrar_evento(f"[PRUEBA] Fallo inyectado: Temperatura forzada a {valor_forzado:.2f} C.")
+            elif variable == "presion":
+                reactor.presion = valor_forzado
+                registrar_evento(f"[PRUEBA] Fallo inyectado: Presion forzada a {valor_forzado:.2f} Bar.")
+            else:
+                registrar_evento("[ERROR] Variable no reconocida. Uso: forzar <temperatura/presion> <valor>")
+            continue
 
         # Procesamiento del Comando: ENCENDER
         if comando == "encender":
