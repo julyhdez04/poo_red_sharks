@@ -168,7 +168,15 @@ class Sensor:
         self.valor_forzado = None
         if registrar:
             registrar_evento(f"[REPARADO] {self.nombre} -> falla/forzado retirado")
-    
+
+    def lectura_str(self) -> str:
+        """Texto de la última lectura para mostrar en el panel."""
+        if not self.medido:
+            return "---"
+        if self.ultima_lectura is None:
+            return "SIN SEÑAL"
+        return f"{self.ultima_lectura:.{self.decimales_medicion}f} {self.unidad}"
+
     def info(self) -> str:
         """Retorna una cadena con las especificaciones técnicas del sensor."""
         return f"{self.nombre:<20} | Var: {self.variable_fisica:<18} | Rango: [{self.rango_min:>4.1f} - {self.rango_max:>5.1f}] {self.unidad:<5} | Sensibilidad: {self.sensibilidad} | Dec: {self.decimales_medicion}"
@@ -193,6 +201,12 @@ def mostrar_interfaz_hmi(actuadores, sensores):
     print(" [SENSORES]")
     for key, sen in sensores.items():
         print(f"   ► [{key:<9}] {sen.info()}")
+        etiqueta = ""
+        if sen.falla:
+            etiqueta = f"   <<< FALLA INYECTADA: {sen.falla}"
+        elif sen.valor_forzado is not None:
+            etiqueta = f"   <<< VALOR FORZADO: {sen.valor_forzado}"
+        print(f"       ↳ Última lectura: {sen.lectura_str()}{etiqueta}")
     print("=" * 85)
     
     # 3. Sección de Registro de Eventos (Event Logger)
@@ -339,6 +353,47 @@ def main():
                 sensores[target].leer_valor_actual()
             else:
                 registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: caudal, manometro, presion")
+
+        # Procesamiento del Comando: FALLA
+        elif comando == "falla":
+            if len(partes) < 3:
+                registrar_evento("[⚠️ ERROR] Uso: falla <sensor> <atascado|saturado|desconectado>")
+                continue
+            target = partes[1].lower()
+            if target in sensores:
+                sensores[target].inyectar_falla(partes[2].lower())
+            else:
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe.")
+
+        # Procesamiento del Comando: FORZAR
+        elif comando == "forzar":
+            if len(partes) < 3:
+                registrar_evento("[⚠️ ERROR] Uso: forzar <sensor> <valor>")
+                continue
+            target = partes[1].lower()
+            try:
+                valor = float(partes[2])
+                if target in sensores:
+                    sensores[target].forzar_valor(valor)
+                else:
+                    registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe.")
+            except ValueError:
+                registrar_evento("[⚠️ ERROR] El valor forzado debe ser numérico.")
+
+        # Procesamiento del Comando: REPARAR
+        elif comando == "reparar":
+            if len(partes) < 2:
+                registrar_evento("[⚠️ ERROR] Uso: reparar <sensor|todos>")
+                continue
+            target = partes[1].lower()
+            if target == "todos":
+                for sensor in sensores.values():
+                    sensor.reparar(registrar=False)
+                registrar_evento("[🛠 REPARADO] Todos los sensores restablecidos")
+            elif target in sensores:
+                sensores[target].reparar()
+            else:
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe.")
 
         # Comando no reconocido
         else:
