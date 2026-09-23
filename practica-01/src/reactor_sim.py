@@ -260,6 +260,18 @@ def main():
         "caudal": caudalimetro,
     }
 
+    # Seleccion del modo de operacion
+    print("=" * 85)
+    print("           SISTEMA DE CONTROL - SELECCION DE MODO DE OPERACION")
+    print("=" * 85)
+    print(" 1. Modo Manual      (control directo del operario)")
+    print(" 2. Modo Automatico  (lazo cerrado de estabilidad)")
+    print(" 3. Modo de Pruebas  (inyeccion de fallos)")
+    opcion_modo = input("Seleccione un modo [1-3]: ").strip()
+    modos_disponibles = {"1": "MANUAL", "2": "AUTOMATICO", "3": "PRUEBAS"}
+    modo = modos_disponibles.get(opcion_modo, "MANUAL")
+    registrar_evento(f"[MODO] Sistema iniciado en modo {modo}.")
+
     # Bucle interactivo directo
     while True:
         # 0. Verificamos los interlocks de seguridad antes de cualquier otra cosa
@@ -267,6 +279,8 @@ def main():
 
         # 1. Limpiamos la pantalla antes de volver a dibujar
         limpiar_pantalla()
+
+        print(f" MODO DE OPERACION ACTUAL: {modo}")
 
         if en_alarma:
             print(" [ALARMA DE SEGURIDAD ACTIVA: LÍMITES DE OPERACIÓN EXCEDIDOS] ")
