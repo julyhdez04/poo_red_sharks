@@ -29,6 +29,11 @@ const int RESOLUCION_PWM_BITS = 8;    // Duty cycle de 0 a 255
 // --- Umbrales de control ---
 const float TEMPERATURA_LIMITE_VENTILADOR = 30.0;  // C
 
+// --- Estado del sistema (controlado por comandos seriales) ---
+bool modoAutomatico = true;
+int dutyManualVentilador = 0;
+int dutyManualLed = 0;
+
 void setup() {
   Serial.begin(115200);
   delay(500);
@@ -47,8 +52,49 @@ void setup() {
 
   Serial.println("==============================================");
   Serial.println(" MICRO-INVERNADERO INTELIGENTE - ESP32");
-  Serial.println(" Etapa 1: Lectura de sensores (ADC 12 bits)");
+  Serial.println(" Comandos disponibles por Monitor Serie:");
+  Serial.println("   leer            -> telemetria en texto plano");
+  Serial.println("   modo auto       -> control automatico (por defecto)");
+  Serial.println("   modo manual     -> control manual de PWM");
+  Serial.println("   vent <0-255>    -> fija duty cycle del ventilador (modo manual)");
+  Serial.println("   led <0-255>     -> fija duty cycle del LED (modo manual)");
   Serial.println("==============================================");
+}
+
+void procesarComandoSerial(String comando) {
+  comando.trim();
+  if (comando.length() == 0) {
+    return;
+  }
+
+  if (comando.equalsIgnoreCase("leer")) {
+    float temperatura = leerTemperatura();
+    int luz = leerLuzAmbiental();
+    Serial.print("TEMP=");
+    Serial.print(temperatura, 2);
+    Serial.print(";LUZ=");
+    Serial.print(luz);
+    Serial.print(";MODO=");
+    Serial.println(modoAutomatico ? "AUTO" : "MANUAL");
+  } else if (comando.equalsIgnoreCase("modo auto")) {
+    modoAutomatico = true;
+    Serial.println("OK: modo automatico activado");
+  } else if (comando.equalsIgnoreCase("modo manual")) {
+    modoAutomatico = false;
+    Serial.println("OK: modo manual activado");
+  } else if (comando.startsWith("vent ")) {
+    int valor = comando.substring(5).toInt();
+    dutyManualVentilador = constrain(valor, 0, 255);
+    Serial.print("OK: ventilador manual = ");
+    Serial.println(dutyManualVentilador);
+  } else if (comando.startsWith("led ")) {
+    int valor = comando.substring(4).toInt();
+    dutyManualLed = constrain(valor, 0, 255);
+    Serial.print("OK: led manual = ");
+    Serial.println(dutyManualLed);
+  } else {
+    Serial.println("ERROR: comando no reconocido");
+  }
 }
 
 float leerTemperatura() {
@@ -86,16 +132,21 @@ void controlarLedPotencia(int luz) {
 }
 
 void loop() {
+  if (Serial.available() > 0) {
+    String entrada = Serial.readStringUntil('\n');
+    procesarComandoSerial(entrada);
+  }
+
   float temperatura = leerTemperatura();
   int luz = leerLuzAmbiental();
 
-  controlarVentilador(temperatura);
-  controlarLedPotencia(luz);
+  if (modoAutomatico) {
+    controlarVentilador(temperatura);
+    controlarLedPotencia(luz);
+  } else {
+    ledcWrite(CANAL_PWM_VENTILADOR, dutyManualVentilador);
+    ledcWrite(CANAL_PWM_LED, dutyManualLed);
+  }
 
-  Serial.print("Temperatura: ");
-  Serial.print(temperatura, 2);
-  Serial.print(" C | Luz (LDR): ");
-  Serial.println(luz);
-
-  delay(1000);
+  delay(200);
 }
