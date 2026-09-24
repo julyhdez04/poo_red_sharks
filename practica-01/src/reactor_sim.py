@@ -59,7 +59,6 @@ class Actuador:
 
 class ValvulaAlivio(Actuador):
     """Actuador digital de alivio: 0 = OFF y 1 = ON."""
-
     def __init__(self, nombre: str = "Válvula de Alivio"):
         super().__init__(nombre)
         self.rango_operacion_min = 0
@@ -105,16 +104,14 @@ class Sensor:
         self.sensibilidad = sensibilidad
         self.decimales_medicion = decimales_medicion
         self.unidad = unidad
+        self.valor_actual = rango_min
 
     def leer_valor_actual(self) -> float:
-        """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
         valor_simulado = random.uniform(self.rango_min, self.rango_max)
-        valor_redondeado = round(valor_simulado, self.decimales_medicion)
-        
-        # Formateamos la lectura con sus decimales y unidad correspondiente
-        lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
+        self.valor_actual = round(valor_simulado, self.decimales_medicion)
+        lectura_str = f"{self.valor_actual:.{self.decimales_medicion}f} {self.unidad}"
         registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
-        return valor_redondeado
+        return self.valor_actual
 
     def info(self) -> str:
         """Retorna una cadena con las especificaciones técnicas del sensor."""
@@ -132,7 +129,6 @@ class SensorDinamico(Sensor):
         return valor_redondeado
 
     def aplicar_delta(self, delta: float):
-        """Aplica la fórmula matemática y limita el valor a los rangos del sensor."""
         self.valor_actual += delta
         self.valor_actual = max(self.rango_min, min(self.valor_actual, self.rango_max))
 
@@ -207,7 +203,7 @@ def main():
         decimales_medicion=3,
         unidad="Bar"
     )
-
+    presion.valor_actual = 5.0
     # Diccionarios de mapeo para enlazar los comandos de texto con las instancias reales
     actuadores = {
         "bomba": bomba,
@@ -244,8 +240,30 @@ def main():
 
         comando = partes[0].lower()
 
+        #==========================================================
+        #  INTERLOCK DE SEGURIDAD 
+        # ==========================================================
+        temp_actual = sensores["temperatura"].valor_actual
+        presion_actual = sensores["manometro"].valor_actual
+
+        if temp_actual > 85.0 or presion_actual > 12.0:
+            if comando not in ["leer", "terminar"]:
+                registrar_evento(f"[ ⚠️ PELIGRO ] Temp: {temp_actual}°C | Presión: {presion_actual} Bar")
+                registrar_evento("[ 🛑 INTERLOCK ACTIVO ] Instrucción bloqueada. Forzando refrigeración...")
+                
+                if actuadores["bomba"].punto_operacion != 100.0 or not actuadores["bomba"].estado:
+                    actuadores["bomba"].encender()
+                    actuadores["bomba"].ajustar(100.0)
+                    
+                if not actuadores["alivio"].estado:
+                    actuadores["alivio"].encender()
+                
+                comando = "ignorado"
+
+        if comando == "ignorado":
+            pass
         # Procesamiento del Comando: ENCENDER
-        if comando == "encender":
+        elif comando == "encender":
             if len(partes) < 2:
                 registrar_evento("[⚠️ ERROR] Especifica el actuador. Uso: encender <bomba/valvula>")
                 continue
@@ -297,17 +315,16 @@ def main():
             modo_automatico = not modo_automatico
             estado = "ACTIVADO" if modo_automatico else "DESACTIVADO"
             registrar_evento(f"[🔄 MODO AUTOMÁTICO] Sistema {estado}.")
-            continue
-        if modo_automatico:
-            operacion_bomba = actuadores["bomba"].punto_operacion
-            delta_t = 1.5 - (0.05 * operacion_bomba)
-            sensores["temperatura"].aplicar_delta(delta_t)
-            registrar_evento(f"[⚙️ ESTABILIDAD] ΔT: {delta_t:+.2f}°C | Nueva Temp: {sensores['temperatura'].valor_actual:.2f}°C")
-
         # Comando no reconocido
         else:
             registrar_evento(f"[⚠️ ERROR] Comando '{comando}' no reconocido.")
 
+        if modo_automatico or (temp_actual > 85.0 or presion_actual > 12.0):
+            operacion_bomba = actuadores["bomba"].punto_operacion
+            delta_t = 1.5 - (0.05 * operacion_bomba) 
+            sensores["temperatura"].aplicar_delta(delta_t)
+            registrar_evento(f"[⚙️ ESTABILIDAD] ΔT: {delta_t:+.2f}°C | Nueva Temp: {sensores['temperatura'].valor_actual:.2f}°C")
+        
 if __name__ == "__main__":
     main()
 
