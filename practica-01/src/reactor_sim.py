@@ -271,11 +271,17 @@ def main():
     modos_disponibles = {"1": "MANUAL", "2": "AUTOMATICO", "3": "PRUEBAS"}
     modo = modos_disponibles.get(opcion_modo, "MANUAL")
     registrar_evento(f"[MODO] Sistema iniciado en modo {modo}.")
+    modo_automatico = (modo == "AUTOMATICO")
 
     # Bucle interactivo directo
     while True:
         # 0. Verificamos los interlocks de seguridad antes de cualquier otra cosa
         en_alarma = aplicar_interlocks(reactor, bomba, valvula)
+
+        # 0.2 Modo automatico (o alarma activa): el reactor avanza un paso segun la bomba
+        if modo_automatico or en_alarma:
+            delta_t = reactor.actualizar(bomba.punto_operacion)
+            registrar_evento(f"[ESTABILIDAD] dT: {delta_t:+.2f} C | Nueva Temp: {reactor.temperatura:.2f} C")
 
         # 1. Limpiamos la pantalla antes de volver a dibujar
         limpiar_pantalla()
@@ -288,6 +294,7 @@ def main():
         # 2. Dibujamos el HMI con los estados actualizados en memoria
         mostrar_interfaz_hmi(actuadores, sensores)
 
+        print(" COMANDO ADICIONAL: automatico (activa/desactiva la simulacion continua)")
         if modo == "PRUEBAS":
             print(" COMANDO ADICIONAL (Modo Pruebas): forzar <temperatura/presion> <valor>")
 
@@ -316,6 +323,13 @@ def main():
             if partes[1].lower() in ("bomba", "valvula"):
                 registrar_evento("[BLOQUEADO] Interlock activo: no se permite control manual de bomba/válvula.")
                 continue
+
+        # Procesamiento del Comando: AUTOMATICO (activa/desactiva la simulacion continua)
+        if comando == "automatico":
+            modo_automatico = not modo_automatico
+            estado = "ACTIVADO" if modo_automatico else "DESACTIVADO"
+            registrar_evento(f"[MODO AUTOMATICO] Sistema {estado}.")
+            continue
 
         # Procesamiento del Comando: FORZAR (solo disponible en Modo de Pruebas)
         if comando == "forzar":
