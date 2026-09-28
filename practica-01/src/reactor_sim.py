@@ -123,6 +123,12 @@ class Reactor:
 # 2. CLASE SENSOR
 # ==============================================================================
 class Sensor:
+    # Tipos de falla simulables en el modo PRUEBAS
+    #   atascado     -> la lectura se congela en el último valor medido
+    #   saturado     -> la lectura se sale del rango físico del sensor
+    #   desconectado -> circuito abierto, no hay señal
+    FALLAS_VALIDAS = ("atascado", "saturado", "desconectado")
+
     def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str, fuente=None):
         # Atributos de especificación técnica del sensor
         self.nombre = nombre
@@ -136,18 +142,78 @@ class Sensor:
         # Si no se especifica, el sensor simula lecturas aleatorias dentro de su rango.
         self.fuente = fuente
 
-    def leer_valor_actual(self) -> float:
-        """Lee el valor real del proceso (si hay fuente) o simula una lectura aleatoria."""
+    # Atributos de estado para el modo pruebas
+        self.falla = None            # Falla inyectada (None = sensor sano)
+        self.valor_forzado = None    # Valor fijo forzado desde el modo PRUEBAS
+        self.medido = False          # verifica si por lo menos hizo una lectura
+        self.ultima_lectura = None   # Último valor medido (None = sin señal)
+
+    def _valor_base(self) -> float:
+        """Valor real del proceso (si hay fuente) o lectura aleatoria dentro del rango."""
         if self.fuente is not None:
-            valor_crudo = self.fuente()
+            crudo = self.fuente()
         else:
-            valor_crudo = random.uniform(self.rango_min, self.rango_max)
-        valor_redondeado = round(valor_crudo, self.decimales_medicion)
-        
-        # Formateamos la lectura con sus decimales y unidad correspondiente
-        lectura_str = f"{valor_redondeado:.{self.decimales_medicion}f} {self.unidad}"
-        registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
-        return valor_redondeado
+            crudo = random.uniform(self.rango_min, self.rango_max)
+        return round(crudo, self.decimales_medicion)
+
+    def medir(self):
+        """Genera una lectura simulada respetando las fallas inyectadas. No registra eventos."""
+        if self.falla == "desconectado":
+            valor = None
+        elif self.falla == "saturado":
+            valor = round(self.rango_max * 1.25, self.decimales_medicion)
+        elif self.falla == "atascado":
+            if self.ultima_lectura is None:
+                valor = self._valor_base()
+            else:
+                valor = self.ultima_lectura
+        elif self.valor_forzado is not None:
+            valor = round(self.valor_forzado, self.decimales_medicion)
+        else:
+            valor = self._valor_base()
+
+        self.medido = True
+        self.ultima_lectura = valor
+        return valor
+
+    def leer_valor_actual(self):
+        """Simula una lectura física, la redondea a la precisión dada y la registra en eventos."""
+        valor = self.medir()
+        if valor is None:
+            registrar_evento(f"[📊 LECTURA] {self.nombre}: SIN SEÑAL (circuito abierto)")
+        else:
+            lectura_str = f"{valor:.{self.decimales_medicion}f} {self.unidad}"
+            registrar_evento(f"[📊 LECTURA] {self.nombre}: {lectura_str} (Var: {self.variable_fisica})")
+        return valor
+
+    def inyectar_falla(self, tipo: str) -> bool:
+        """Inyecta una falla simulada en el sensor (solo modo PRUEBAS)."""
+        if tipo not in self.FALLAS_VALIDAS:
+            registrar_evento(f"[ERROR] Falla '{tipo}' no válida. Opciones: {', '.join(self.FALLAS_VALIDAS)}")
+            return False
+        self.falla = tipo
+        registrar_evento(f"[FALLA] {self.nombre} -> falla '{tipo}' inyectada")
+        return True
+
+    def forzar_valor(self, valor: float):
+        """Fuerza una lectura fija en el sensor para probar reacciones."""
+        self.valor_forzado = valor
+        registrar_evento(f"[FORZADO] {self.nombre} -> lectura forzada a {valor:.{self.decimales_medicion}f} {self.unidad}")
+
+    def reparar(self, registrar: bool = True):
+        """Retira la falla y el valor forzado."""
+        self.falla = None
+        self.valor_forzado = None
+        if registrar:
+            registrar_evento(f"[REPARADO] {self.nombre} -> falla/forzado retirado")
+
+    def lectura_str(self) -> str:
+        """Texto de la última lectura para mostrar en el panel."""
+        if not self.medido:
+            return "---"
+        if self.ultima_lectura is None:
+            return "SIN SEÑAL"
+        return f"{self.ultima_lectura:.{self.decimales_medicion}f} {self.unidad}"
 
     def info(self) -> str:
         """Retorna una cadena con las especificaciones técnicas del sensor."""
@@ -173,6 +239,12 @@ def mostrar_interfaz_hmi(actuadores, sensores):
     print(" [SENSORES]")
     for key, sen in sensores.items():
         print(f"   ► [{key:<9}] {sen.info()}")
+        etiqueta = ""
+        if sen.falla:
+            etiqueta = f"   <<< FALLA INYECTADA: {sen.falla}"
+        elif sen.valor_forzado is not None:
+            etiqueta = f"   <<< VALOR FORZADO: {sen.valor_forzado}"
+        print(f"       ↳ Última lectura: {sen.lectura_str()}{etiqueta}")
     print("=" * 85)
     
     # 3. Sección de Registro de Eventos (Event Logger)
@@ -197,12 +269,24 @@ def mostrar_interfaz_hmi(actuadores, sensores):
 # ==============================================================================
 # INTERLOCKS DE SEGURIDAD
 # ==============================================================================
-def aplicar_interlocks(reactor, bomba, valvula):
+def aplicar_interlocks(reactor, bomba, valvula, termometro=None, manometro=None):
     """
     Si Temperatura > 85.0 C o Presion > 12.0 Bar, el sistema ignora cualquier
     instruccion del operario y fuerza la Bomba al 100% y la Valvula de Alivio abierta.
     """
-    if reactor.en_alarma():
+    # La proteccion lee los instrumentos: una lectura forzada o con falla tambien la dispara
+    temperatura = reactor.temperatura
+    presion = reactor.presion
+    if termometro is not None:
+        lectura = termometro.medir()
+        if lectura is not None:
+            temperatura = lectura
+    if manometro is not None:
+        lectura = manometro.medir()
+        if lectura is not None:
+            presion = lectura
+
+    if temperatura > reactor.limite_temp or presion > reactor.limite_presion:
         if bomba.punto_operacion != 100.0 or not bomba.estado:
             bomba.encender()
             bomba.ajustar(100.0)
@@ -276,10 +360,10 @@ def main():
     # Bucle interactivo directo
     while True:
         # 0. Verificamos los interlocks de seguridad antes de cualquier otra cosa
-        en_alarma = aplicar_interlocks(reactor, bomba, valvula)
+        en_alarma = aplicar_interlocks(reactor, bomba, valvula, termometro, manometro)
 
         # 0.2 Modo automatico (o alarma activa): el reactor avanza un paso segun la bomba
-        if modo_automatico or en_alarma:
+        if modo_automatico or reactor.en_alarma():
             delta_t = reactor.actualizar(bomba.punto_operacion)
             registrar_evento(f"[ESTABILIDAD] dT: {delta_t:+.2f} C | Nueva Temp: {reactor.temperatura:.2f} C")
 
@@ -296,7 +380,7 @@ def main():
 
         print(" COMANDO ADICIONAL: automatico (activa/desactiva la simulacion continua)")
         if modo == "PRUEBAS":
-            print(" COMANDO ADICIONAL (Modo Pruebas): forzar <temperatura/presion> <valor>")
+            print(" MODO PRUEBAS: falla <sensor> <atascado|saturado|desconectado> | forzar <sensor> <valor> | reparar <sensor|todos>")
 
         try:
             # Solicitamos el comando de entrada al usuario
@@ -331,28 +415,9 @@ def main():
             registrar_evento(f"[MODO AUTOMATICO] Sistema {estado}.")
             continue
 
-        # Procesamiento del Comando: FORZAR (solo disponible en Modo de Pruebas)
-        if comando == "forzar":
-            if modo != "PRUEBAS":
-                registrar_evento("[ERROR] El comando 'forzar' solo esta disponible en Modo de Pruebas.")
-                continue
-            if len(partes) < 3:
-                registrar_evento("[ERROR] Uso: forzar <temperatura/presion> <valor>")
-                continue
-            variable = partes[1].lower()
-            try:
-                valor_forzado = float(partes[2])
-            except ValueError:
-                registrar_evento("[ERROR] El valor forzado debe ser numerico.")
-                continue
-            if variable == "temperatura":
-                reactor.temperatura = valor_forzado
-                registrar_evento(f"[PRUEBA] Fallo inyectado: Temperatura forzada a {valor_forzado:.2f} C.")
-            elif variable == "presion":
-                reactor.presion = valor_forzado
-                registrar_evento(f"[PRUEBA] Fallo inyectado: Presion forzada a {valor_forzado:.2f} Bar.")
-            else:
-                registrar_evento("[ERROR] Variable no reconocida. Uso: forzar <temperatura/presion> <valor>")
+        # Los comandos de inyeccion de fallos solo existen en Modo de Pruebas
+        if comando in ("falla", "forzar", "reparar") and modo != "PRUEBAS":
+            registrar_evento(f"[ERROR] El comando '{comando}' solo esta disponible en Modo de Pruebas.")
             continue
 
         # Procesamiento del Comando: ENCENDER
@@ -403,6 +468,47 @@ def main():
             else:
                 registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: temperatura, manometro, caudal")
 
+        # Procesamiento del Comando: FALLA
+        elif comando == "falla":
+            if len(partes) < 3:
+                registrar_evento("[⚠️ ERROR] Uso: falla <sensor> <atascado|saturado|desconectado>")
+                continue
+            target = partes[1].lower()
+            if target in sensores:
+                sensores[target].inyectar_falla(partes[2].lower())
+            else:
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe.")
+
+        # Procesamiento del Comando: FORZAR
+        elif comando == "forzar":
+            if len(partes) < 3:
+                registrar_evento("[⚠️ ERROR] Uso: forzar <sensor> <valor>")
+                continue
+            target = partes[1].lower()
+            try:
+                valor = float(partes[2])
+                if target in sensores:
+                    sensores[target].forzar_valor(valor)
+                else:
+                    registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe.")
+            except ValueError:
+                registrar_evento("[⚠️ ERROR] El valor forzado debe ser numérico.")
+
+        # Procesamiento del Comando: REPARAR
+        elif comando == "reparar":
+            if len(partes) < 2:
+                registrar_evento("[⚠️ ERROR] Uso: reparar <sensor|todos>")
+                continue
+            target = partes[1].lower()
+            if target == "todos":
+                for sensor in sensores.values():
+                    sensor.reparar(registrar=False)
+                registrar_evento("[🛠 REPARADO] Todos los sensores restablecidos")
+            elif target in sensores:
+                sensores[target].reparar()
+            else:
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe.")
+
         # Comando no reconocido
         else:
             registrar_evento(f"[⚠️ ERROR] Comando '{comando}' no reconocido.")
@@ -410,4 +516,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
