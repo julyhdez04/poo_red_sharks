@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """
 EE: Programación Orientada a Objetos (UV)
+Ejemplo de un Integrador v7: Panel HMI Estático con Limpieza de Pantalla y Registro de Eventos (Obtenido en clase)
+
 """
-#   Librerías usadas en el proyecto
+
 import os
 import random
 
@@ -91,7 +93,32 @@ class ValvulaAlivio(Actuador):
         estado_str = "ON" if self.estado else "OFF"
         return f"{self.nombre:<20} | Estado: {estado_str:<3} | Digital: {int(self.estado)} | Control: ON/OFF"
 
+# ==============================================================================
+# 1.5 CLASE REACTOR (Modelo Físico del Proceso)
+# ==============================================================================
+class Reactor:
+    """Modela el estado térmico y barométrico interno del reactor químico."""
 
+    def __init__(self):
+        self.temperatura = 25.0   # °C, arranca a temperatura ambiente
+        self.presion = 1.0        # Bar, arranca a presión atmosférica aprox.
+        self.limite_temp = 85.0   # °C, umbral de interlock
+        self.limite_presion = 12.0  # Bar, umbral de interlock
+
+    def actualizar(self, porcentaje_bomba: float):
+        """
+        Avanza un paso de simulación del reactor según la fórmula de estabilidad:
+        ΔT = (+1.5°C) - (0.05°C x %OperacionBomba)
+        La presión se acopla de forma simplificada al cambio de temperatura.
+        """
+        delta_t = 1.5 - (0.05 * porcentaje_bomba)
+        self.temperatura = max(0.0, self.temperatura + delta_t)
+        self.presion = max(0.0, self.presion + (delta_t * 0.08))
+        return delta_t
+
+    def en_alarma(self) -> bool:
+        """Indica si el reactor superó alguno de los límites de seguridad."""
+        return self.temperatura > self.limite_temp or self.presion > self.limite_presion
 # ==============================================================================
 # 2. CLASE SENSOR
 # ==============================================================================
@@ -102,7 +129,7 @@ class Sensor:
     #   desconectado -> circuito abierto, no hay señal
     FALLAS_VALIDAS = ("atascado", "saturado", "desconectado")
 
-    def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str):
+    def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str, fuente=None):
         # Atributos de especificación técnica del sensor
         self.nombre = nombre
         self.variable_fisica = variable_fisica
@@ -111,12 +138,23 @@ class Sensor:
         self.sensibilidad = sensibilidad
         self.decimales_medicion = decimales_medicion
         self.unidad = unidad
+        # Función opcional que entrega el valor real del proceso (lazo cerrado).
+        # Si no se especifica, el sensor simula lecturas aleatorias dentro de su rango.
+        self.fuente = fuente
 
     # Atributos de estado para el modo pruebas
         self.falla = None            # Falla inyectada (None = sensor sano)
         self.valor_forzado = None    # Valor fijo forzado desde el modo PRUEBAS
         self.medido = False          # verifica si por lo menos hizo una lectura
         self.ultima_lectura = None   # Último valor medido (None = sin señal)
+
+    def _valor_base(self) -> float:
+        """Valor real del proceso (si hay fuente) o lectura aleatoria dentro del rango."""
+        if self.fuente is not None:
+            crudo = self.fuente()
+        else:
+            crudo = random.uniform(self.rango_min, self.rango_max)
+        return round(crudo, self.decimales_medicion)
 
     def medir(self):
         """Genera una lectura simulada respetando las fallas inyectadas. No registra eventos."""
@@ -126,13 +164,13 @@ class Sensor:
             valor = round(self.rango_max * 1.25, self.decimales_medicion)
         elif self.falla == "atascado":
             if self.ultima_lectura is None:
-                valor = round(random.uniform(self.rango_min, self.rango_max), self.decimales_medicion)
+                valor = self._valor_base()
             else:
                 valor = self.ultima_lectura
         elif self.valor_forzado is not None:
             valor = round(self.valor_forzado, self.decimales_medicion)
         else:
-            valor = round(random.uniform(self.rango_min, self.rango_max), self.decimales_medicion)
+            valor = self._valor_base()
 
         self.medido = True
         self.ultima_lectura = valor
@@ -229,63 +267,121 @@ def mostrar_interfaz_hmi(actuadores, sensores):
 
 
 # ==============================================================================
+# INTERLOCKS DE SEGURIDAD
+# ==============================================================================
+def aplicar_interlocks(reactor, bomba, valvula, termometro=None, manometro=None):
+    """
+    Si Temperatura > 85.0 C o Presion > 12.0 Bar, el sistema ignora cualquier
+    instruccion del operario y fuerza la Bomba al 100% y la Valvula de Alivio abierta.
+    """
+    # La proteccion lee los instrumentos: una lectura forzada o con falla tambien la dispara
+    temperatura = reactor.temperatura
+    presion = reactor.presion
+    if termometro is not None:
+        lectura = termometro.medir()
+        if lectura is not None:
+            temperatura = lectura
+    if manometro is not None:
+        lectura = manometro.medir()
+        if lectura is not None:
+            presion = lectura
+
+    if temperatura > reactor.limite_temp or presion > reactor.limite_presion:
+        if bomba.punto_operacion != 100.0 or not bomba.estado:
+            bomba.encender()
+            bomba.ajustar(100.0)
+            registrar_evento("[INTERLOCK] Límite de seguridad excedido: Bomba forzada al 100%.")
+        if valvula.punto_operacion != 1:
+            valvula.encender()
+            registrar_evento("[INTERLOCK] Límite de seguridad excedido: Válvula de Alivio forzada a ABIERTA.")
+        return True
+    return False
+
+
+# ==============================================================================
 # BUCLE INTERACTIVO PRINCIPAL
 # ==============================================================================
 def main():
+    # Modelo físico del proceso que alimenta las lecturas de los sensores
+    reactor = Reactor()
     # 3. Creación de dos objetos de la clase Actuador
-    bomba = Actuador("Bomba de Agua")
-    valvula = Actuador("Válvula de Control")
-    lampara1 = Actuador("Lámpara de sala")
-    valvula_alivio = ValvulaAlivio()
+        # --- Actuadores especificados en la práctica ---
+    bomba = Actuador("Bomba de Enfriamiento")   # 0-100 %, modulación proporcional
+    valvula = ValvulaAlivio()                   # digital 0/1
 
-    # 3. Creación de dos objetos de la clase Sensor
-    medidor_temperatura = Sensor(
-    nombre="sensor de temperatura",
-        variable_fisica="temperatura",
-        rango_min=0.0,
-        rango_max=150.0,
-        sensibilidad=0.01,
-        decimales_medicion=2,
-        unidad="°C"
+    # --- Sensores especificados en la práctica ---
+    termometro = Sensor(
+        nombre="Termopar de Reactor",
+        variable_fisica="Temperatura",
+        rango_min=0.0, rango_max=150.0,
+        sensibilidad=0.01, decimales_medicion=2, unidad="°C",
+        fuente=lambda: reactor.temperatura,
     )
 
     manometro = Sensor(
         nombre="Manómetro Digital",
-        variable_fisica="Presión Hidráulica",
-        rango_min=0.0,
-        rango_max=10.0,
-        sensibilidad=0.001,
-        decimales_medicion=3,
-        unidad="Bar"
-    )
-    
-    presion = Sensor(
-        nombre="Presurómetro Quimico",
-        variable_fisica="Presión Quimica",
-        rango_min=0.0,
-        rango_max=15.0,
-        sensibilidad=0.001, 
-        decimales_medicion=3,
-        unidad="Bar"
+        variable_fisica="Presión de Reactor",
+        rango_min=0.0, rango_max=15.0,
+        sensibilidad=0.001, decimales_medicion=3, unidad="Bar",
+        fuente=lambda: reactor.presion,
     )
 
-    # Diccionarios de mapeo para enlazar los comandos de texto con las instancias reales
+    caudalimetro = Sensor(
+        nombre="Caudalímetro",
+        variable_fisica="Flujo de Refrigerante",
+        rango_min=0.0, rango_max=50.0,
+        sensibilidad=0.1, decimales_medicion=1, unidad="L/min",
+        fuente=lambda: bomba.punto_operacion * 0.5,
+    )
+
     actuadores = {
         "bomba": bomba,
         "valvula": valvula,
-        "lampara1": lampara1,
-        "alivio": valvula_alivio,
     }
-    sensores = {"temperatura": medidor_temperatura, "manometro": manometro, "presion": presion}
+    sensores = {
+        "temperatura": termometro,
+        "manometro": manometro,
+        "caudal": caudalimetro,
+    }
+
+    # Seleccion del modo de operacion
+    print("=" * 85)
+    print("           SISTEMA DE CONTROL - SELECCION DE MODO DE OPERACION")
+    print("=" * 85)
+    print(" 1. Modo Manual      (control directo del operario)")
+    print(" 2. Modo Automatico  (lazo cerrado de estabilidad)")
+    print(" 3. Modo de Pruebas  (inyeccion de fallos)")
+    opcion_modo = input("Seleccione un modo [1-3]: ").strip()
+    modos_disponibles = {"1": "MANUAL", "2": "AUTOMATICO", "3": "PRUEBAS"}
+    modo = modos_disponibles.get(opcion_modo, "MANUAL")
+    registrar_evento(f"[MODO] Sistema iniciado en modo {modo}.")
+    modo_automatico = (modo == "AUTOMATICO")
 
     # Bucle interactivo directo
     while True:
+        # 0. Verificamos los interlocks de seguridad antes de cualquier otra cosa
+        en_alarma = aplicar_interlocks(reactor, bomba, valvula, termometro, manometro)
+
+        # 0.2 Modo automatico (o alarma activa): el reactor avanza un paso segun la bomba
+        if modo_automatico or reactor.en_alarma():
+            delta_t = reactor.actualizar(bomba.punto_operacion)
+            registrar_evento(f"[ESTABILIDAD] dT: {delta_t:+.2f} C | Nueva Temp: {reactor.temperatura:.2f} C")
+
         # 1. Limpiamos la pantalla antes de volver a dibujar
         limpiar_pantalla()
-        
+
+        print(f" MODO DE OPERACION ACTUAL: {modo}")
+
+        if en_alarma:
+            print(" [ALARMA DE SEGURIDAD ACTIVA: LÍMITES DE OPERACIÓN EXCEDIDOS] ")
+
         # 2. Dibujamos el HMI con los estados actualizados en memoria
         mostrar_interfaz_hmi(actuadores, sensores)
-        
+
+        print(" COMANDO ADICIONAL: automatico (activa/desactiva la simulacion continua)")
+        if modo == "PRUEBAS":
+            print(" MODO PRUEBAS: falla <sensor> <atascado|saturado|desconectado> | forzar <sensor> <valor> | reparar <sensor|todos>")
+
         try:
             # Solicitamos el comando de entrada al usuario
             entrada = input("Ingrese comando >> ").strip()
@@ -305,6 +401,24 @@ def main():
             continue
 
         comando = partes[0].lower()
+
+        # Bloqueo de comandos manuales sobre bomba/valvula durante interlock activo
+        if en_alarma and comando in ("ajustar", "apagar", "encender") and len(partes) >= 2:
+            if partes[1].lower() in ("bomba", "valvula"):
+                registrar_evento("[BLOQUEADO] Interlock activo: no se permite control manual de bomba/válvula.")
+                continue
+
+        # Procesamiento del Comando: AUTOMATICO (activa/desactiva la simulacion continua)
+        if comando == "automatico":
+            modo_automatico = not modo_automatico
+            estado = "ACTIVADO" if modo_automatico else "DESACTIVADO"
+            registrar_evento(f"[MODO AUTOMATICO] Sistema {estado}.")
+            continue
+
+        # Los comandos de inyeccion de fallos solo existen en Modo de Pruebas
+        if comando in ("falla", "forzar", "reparar") and modo != "PRUEBAS":
+            registrar_evento(f"[ERROR] El comando '{comando}' solo esta disponible en Modo de Pruebas.")
+            continue
 
         # Procesamiento del Comando: ENCENDER
         if comando == "encender":
@@ -346,13 +460,13 @@ def main():
         # Procesamiento del Comando: LEER
         elif comando == "leer":
             if len(partes) < 2:
-                registrar_evento("[⚠️ ERROR] Especifica el sensor. Uso: leer <caudal/manometro/presion>")
+                registrar_evento("[⚠️ ERROR] Especifica el sensor. Uso: leer <caudal/manometro>")
                 continue
             target = partes[1].lower()
             if target in sensores:
                 sensores[target].leer_valor_actual()
             else:
-                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: caudal, manometro, presion")
+                registrar_evento(f"[⚠️ ERROR] Sensor '{target}' no existe. Opciones: temperatura, manometro, caudal")
 
         # Procesamiento del Comando: FALLA
         elif comando == "falla":
@@ -402,4 +516,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
