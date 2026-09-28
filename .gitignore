@@ -64,4 +64,6 @@ _autosave-*
 *.dbk
 *.DBK
 *.bak
-Mostrando drive\cur_132837\Contenido\elem_414584\a7aa9eb6-3208-47d8-a5c5-9cc771b16531.txt
+
+# --- Salidas generadas por los scripts ---
+datos_persona.txt
