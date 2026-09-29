@@ -272,7 +272,6 @@ def mostrar_interfaz_hmi(actuadores, sensores, modo):
             print(f"   {ev}")
     print("=" * 85)
 
-    print(" COMANDOS DISPONIBLES:")
     if modo == "PRUEBAS":
         print("[COMANDOS DE DIAGNÓSTICO]")
         print("   • falla <sensor> <atascado|saturado|desconectado>     (Ej: falla manometro saturado)")
