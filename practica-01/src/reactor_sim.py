@@ -4,6 +4,9 @@ EE: Programación Orientada a Objetos (UV)
 Ejemplo de un Integrador v7: Panel HMI Estático con Limpieza de Pantalla y Registro de Eventos (Obtenido en clase)
 
 """
+# ==============================================================================
+# IMPORTACIONES
+# ==============================================================================
 
 import os
 import random
@@ -24,8 +27,13 @@ def limpiar_pantalla():
 
 
 # ==============================================================================
-# 1. CLASE ACTUADOR
+# ACTUADORES (Dispositivos de Control)
 # ==============================================================================
+
+# ==============================================================================
+# SUPERCLASE  (Base para todos los actuadores)
+# ==============================================================================
+
 class Actuador:
     def __init__(self, nombre: str):
         # Atributos de estado del actuador
@@ -43,6 +51,7 @@ class Actuador:
     def apagar(self):
         """Cambia el estado lógico a OFF y registra la acción."""
         self.estado = False
+        self.punto_operacion = 0.0
         registrar_evento(f"[-] {self.nombre} -> Estado cambiado a: APAGADO (OFF)")
 
     def ajustar(self, valor: float):
@@ -58,6 +67,9 @@ class Actuador:
         estado_str = "ON" if self.estado else "OFF"
         return f"{self.nombre:<20} | Estado: {estado_str:<3} | Punto Op: {self.punto_operacion:>5.1f}% | Rango: [0.0% - 100.0%]"
 
+# ==============================================================================
+# SUBCLASE  (Válvula de Alivio)
+# ==============================================================================
 
 class ValvulaAlivio(Actuador):
     """Actuador digital de alivio: 0 = OFF y 1 = ON."""
@@ -94,7 +106,7 @@ class ValvulaAlivio(Actuador):
         return f"{self.nombre:<20} | Estado: {estado_str:<3} | Digital: {int(self.estado)} | Control: ON/OFF"
 
 # ==============================================================================
-# 1.5 CLASE REACTOR (Modelo Físico del Proceso)
+# MODO AUTOMATICO 
 # ==============================================================================
 class Reactor:
     """Modela el estado térmico y barométrico interno del reactor químico."""
@@ -106,11 +118,7 @@ class Reactor:
         self.limite_presion = 12.0  # Bar, umbral de interlock
 
     def actualizar(self, porcentaje_bomba: float):
-        """
-        Avanza un paso de simulación del reactor según la fórmula de estabilidad:
-        ΔT = (+1.5°C) - (0.05°C x %OperacionBomba)
-        La presión se acopla de forma simplificada al cambio de temperatura.
-        """
+        """Actualiza la temperatura y presión del reactor según el porcentaje de operación de la bomba."""
         delta_t = 1.5 - (0.05 * porcentaje_bomba)
         self.temperatura = max(0.0, self.temperatura + delta_t)
         self.presion = max(0.0, self.presion + (delta_t * 0.08))
@@ -120,14 +128,19 @@ class Reactor:
         """Indica si el reactor superó alguno de los límites de seguridad."""
         return self.temperatura > self.limite_temp or self.presion > self.limite_presion
 # ==============================================================================
-# 2. CLASE SENSOR
+# SUPERCLASE SENSOR (Base para todos los sensores)
 # ==============================================================================
 class Sensor:
+
+# ==============================================================================
+# MODO PRUEBAS
+# ==============================================================================
     # Tipos de falla simulables en el modo PRUEBAS
     #   atascado     -> la lectura se congela en el último valor medido
     #   saturado     -> la lectura se sale del rango físico del sensor
     #   desconectado -> circuito abierto, no hay señal
     FALLAS_VALIDAS = ("atascado", "saturado", "desconectado")
+# ==============================================================================
 
     def __init__(self, nombre: str, variable_fisica: str, rango_min: float, rango_max: float, sensibilidad: float, decimales_medicion: int, unidad: str, fuente=None):
         # Atributos de especificación técnica del sensor
@@ -141,12 +154,15 @@ class Sensor:
         # Función opcional que entrega el valor real del proceso (lazo cerrado).
         # Si no se especifica, el sensor simula lecturas aleatorias dentro de su rango.
         self.fuente = fuente
-
-    # Atributos de estado para el modo pruebas
+    
+# ==============================================================================
+# Atributos de estado para el modo pruebas
+# ==============================================================================
         self.falla = None            # Falla inyectada (None = sensor sano)
         self.valor_forzado = None    # Valor fijo forzado desde el modo PRUEBAS
         self.medido = False          # verifica si por lo menos hizo una lectura
         self.ultima_lectura = None   # Último valor medido (None = sin señal)
+# ==============================================================================
 
     def _valor_base(self) -> float:
         """Valor real del proceso (si hay fuente) o lectura aleatoria dentro del rango."""
@@ -223,7 +239,7 @@ class Sensor:
 # ==============================================================================
 # INTERFAZ HMI (TABLERO DE CONTROL)
 # ==============================================================================
-def mostrar_interfaz_hmi(actuadores, sensores):
+def mostrar_interfaz_hmi(actuadores, sensores, modo):
     """Pinta el menú y los estados actuales de los objetos en una pantalla fija."""
     print("=" * 85)
     print("                PANEL DE CONTROL INDUSTRIAL HMI (ESTÁTICO)")
@@ -255,7 +271,13 @@ def mostrar_interfaz_hmi(actuadores, sensores):
         for ev in historial_eventos:
             print(f"   {ev}")
     print("=" * 85)
-    
+
+    print(" COMANDOS DISPONIBLES:")
+    if modo == "PRUEBAS":
+        print("[COMANDOS DE DIAGNÓSTICO]")
+        print("   • falla <sensor> <atascado|saturado|desconectado>     (Ej: falla manometro saturado)")
+        print("   • forzar <sensor> <val>     (Ej: forzar temperatura 95.5)")
+        print("   • reparar <sensor|todos>    (Ej: reparar todos)")
     # 4. Sección de Comandos
     print(" COMANDOS DISPONIBLES:")
     print("   • encender <actuador>       (Ej: encender bomba)")
@@ -290,10 +312,10 @@ def aplicar_interlocks(reactor, bomba, valvula, termometro=None, manometro=None)
         if bomba.punto_operacion != 100.0 or not bomba.estado:
             bomba.encender()
             bomba.ajustar(100.0)
-            registrar_evento("[INTERLOCK] Límite de seguridad excedido: Bomba forzada al 100%.")
+            registrar_evento("🛑 [INTERLOCK] Límite de seguridad excedido: Bomba forzada al 100%.")
         if valvula.punto_operacion != 1:
             valvula.encender()
-            registrar_evento("[INTERLOCK] Límite de seguridad excedido: Válvula de Alivio forzada a ABIERTA.")
+            registrar_evento("🛑 [INTERLOCK] Límite de seguridad excedido: Válvula forzada a ABIERTA.")
         return True
     return False
 
@@ -344,7 +366,9 @@ def main():
         "caudal": caudalimetro,
     }
 
-    # Seleccion del modo de operacion
+# ==============================================================================
+# Seleccion del modo de operacion
+# ==============================================================================
     print("=" * 85)
     print("           SISTEMA DE CONTROL - SELECCION DE MODO DE OPERACION")
     print("=" * 85)
@@ -363,9 +387,10 @@ def main():
         en_alarma = aplicar_interlocks(reactor, bomba, valvula, termometro, manometro)
 
         # 0.2 Modo automatico (o alarma activa): el reactor avanza un paso segun la bomba
+        delta_t = reactor.actualizar(bomba.punto_operacion)
+
         if modo_automatico or reactor.en_alarma():
-            delta_t = reactor.actualizar(bomba.punto_operacion)
-            registrar_evento(f"[ESTABILIDAD] dT: {delta_t:+.2f} C | Nueva Temp: {reactor.temperatura:.2f} C")
+            registrar_evento(f"[🔄 ESTABILIDAD] dT: {delta_t:+.2f} C | Nueva Temp: {reactor.temperatura:.2f} C")
 
         # 1. Limpiamos la pantalla antes de volver a dibujar
         limpiar_pantalla()
@@ -376,12 +401,10 @@ def main():
             print(" [ALARMA DE SEGURIDAD ACTIVA: LÍMITES DE OPERACIÓN EXCEDIDOS] ")
 
         # 2. Dibujamos el HMI con los estados actualizados en memoria
-        mostrar_interfaz_hmi(actuadores, sensores)
+        mostrar_interfaz_hmi(actuadores, sensores, modo)
 
         print(" COMANDO ADICIONAL: automatico (activa/desactiva la simulacion continua)")
-        if modo == "PRUEBAS":
-            print(" MODO PRUEBAS: falla <sensor> <atascado|saturado|desconectado> | forzar <sensor> <valor> | reparar <sensor|todos>")
-
+        
         try:
             # Solicitamos el comando de entrada al usuario
             entrada = input("Ingrese comando >> ").strip()
