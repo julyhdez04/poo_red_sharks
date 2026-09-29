@@ -133,7 +133,7 @@ class Reactor:
 class Sensor:
 
 # ==============================================================================
-# MODO PRUEBAS
+# MODO PRUEBAS (Tipos de falla simulables)
 # ==============================================================================
     # Tipos de falla simulables en el modo PRUEBAS
     #   atascado     -> la lectura se congela en el último valor medido
@@ -404,7 +404,7 @@ def main():
         mostrar_interfaz_hmi(actuadores, sensores, modo)
 
         print(" COMANDO ADICIONAL: automatico (activa/desactiva la simulacion continua)")
-        
+
         try:
             # Solicitamos el comando de entrada al usuario
             entrada = input("Ingrese comando >> ").strip()
@@ -442,6 +442,10 @@ def main():
         if comando in ("falla", "forzar", "reparar") and modo != "PRUEBAS":
             registrar_evento(f"[ERROR] El comando '{comando}' solo esta disponible en Modo de Pruebas.")
             continue
+
+# ==============================================================================
+# Mensaje de error de ingreso de comando
+# ==============================================================================
 
         # Procesamiento del Comando: ENCENDER
         if comando == "encender":
