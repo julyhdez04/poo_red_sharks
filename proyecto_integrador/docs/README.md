@@ -1,4 +1,4 @@
-# Etapa 1 · Planteamiento (Propuesta y Arquitectura)
+ Etapa 1 · Planteamiento (Propuesta y Arquitectura)
  
 **Proyecto:** Estación Meteorológica Automatizada
 **Equipo:** POO Red Sharks · EE Programación Orientada a Objetos · Universidad Veracruzana
@@ -13,7 +13,7 @@ Los diagramas (UML y esquema de conexiones) están en [`../diagrams/README.md`](
 | :--- | :--- |
 | **Opción elegida** | Estación Meteorológica Automatizada |
 | **Objetivo general** | Desarrollar un sistema de monitoreo ambiental autónomo que adquiera, filtre y procese de forma continua variables atmosféricas en tiempo real. |
-| **Aplicación tangible** | Estación de mesa o exterior (dentro de un protector de radiación ventilado) que muestra las condiciones del clima en una pantalla OLED, indica el nivel de riesgo UV con un LED de color y envía la telemetría en formato JSON. |
+| **Aplicación tangible** | Estación de mesa o exterior (dentro de un protector de radiación ventilado) que muestra las condiciones del clima en una pantalla OLED, indica el nivel de riesgo UV con un LED de color e imprime los valores en el Monitor Serie para depuración. |
  
 ### Objetivos específicos
  
@@ -22,7 +22,7 @@ Los diagramas (UML y esquema de conexiones) están en [`../diagrams/README.md`](
 3. Calcular variables secundarias: **punto de rocío**, **índice de calor** y **altitud estimada**.
 4. Mostrar los datos en una pantalla OLED y señalizar el riesgo UV con un LED RGB.
 5. Controlar por PWM un ventilador que ventila el protector de radiación según la intensidad del sol.
-6. Transmitir las métricas procesadas en JSON (puerto serie; WiFi en una etapa posterior).
+6. Imprimir los valores medidos y calculados en el Monitor Serie (115200 baudios) para depurar y verificar el funcionamiento.
 7. Organizar todo el firmware con POO: una superclase abstracta `NodoIoT` de la que heredan sensores, actuadores y la pantalla.
 ---
  
@@ -34,7 +34,7 @@ Los diagramas (UML y esquema de conexiones) están en [`../diagrams/README.md`](
 | :--- | :--- | :--- | :---: | :--- |
 | **BME280** | Temperatura, humedad, presión | I²C (dir. `0x76`) | SDA 21 · SCL 22 | Es el sensor principal. Da la presión necesaria para calcular la altitud y tiene buena precisión (±1 hPa, ±1 °C). |
 | **DHT22** | Temperatura, humedad | Digital de un hilo | GPIO 4 | Es un sensor de respaldo. Permite comparar sus lecturas con las del BME280 para detectar fallas, y muestra el polimorfismo con dos sensores de la misma familia. |
-| **GUVA-S12SD** | Radiación UV → índice UV | Analógica (ADC1) | GPIO 34 | Entrega un voltaje proporcional a la radiación UV (≈ 0–1 V). Se usa ADC1 porque ADC2 no funciona con el WiFi activo. |
+| **GUVA-S12SD** | Radiación UV → índice UV | Analógica (ADC1) | GPIO 34 | Entrega un voltaje proporcional a la radiación UV (≈ 0–1 V). Se usa ADC1, el convertidor más confiable del ESP32 para lecturas analógicas. |
  
 ### Salidas (actuadores e indicadores)
  
