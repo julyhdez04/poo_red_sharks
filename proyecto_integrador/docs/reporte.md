@@ -110,3 +110,52 @@ El firmware se organiza con una jerarquía de clases. La raíz es la superclase 
   - Las fórmulas (`calcularPuntoRocio()`, `calcularIndiceCalor()`, `calcularAltitud()`, `convertirAIndice()`) son **privadas** (`-`). Desde fuera solo se accede a los getters públicos (`+`).
   - Las variables medidas son **protegidas** (`#`): las subclases las escriben al leer, pero el resto del programa no puede modificarlas.
   - `ajustar()` limita el nivel del actuador a 0–100 % antes de escribir el PWM.
+ 
+### Temporización (sin `delay()`)
+
+| Nodo | Intervalo | Motivo |
+| :--- | :---: | :--- |
+| `SensorUV` | 200 ms | Muestreo rápido para que el filtro promedie bien el ruido del ADC. |
+| `SensorBME280` | 1 s | Lectura principal. |
+| `SensorDHT22` | 2 s | Es el tiempo mínimo entre lecturas que permite el DHT22. |
+| `PantallaOLED` | 3 s | Cambio de página. |
+| Monitor Serie | 2 s | Impresión de los valores filtrados para depuración. |
+
+### Reglas de control
+
+- **Ventilador:** se apaga con índice UV < 1 (de noche). Con más sol, el nivel crece en proporción al índice UV, desde 30 % hasta 100 % con UV ≥ 8; el 30 % es el mínimo para que el motor arranque. Si la temperatura supera 32 °C, el ventilador sube al menos a 60 %.
+- **LED RGB:** muestra el color correspondiente al índice UV filtrado. Si un sensor acumula fallas, parpadea en blanco.
+- **Validación cruzada:** si el BME280 y el DHT22 difieren en más de 2 °C, se muestra un aviso en la OLED y en el Monitor Serie.
+
+### Variables secundarias (métodos privados)
+
+| Variable | Fórmula | Clase |
+| :--- | :--- | :--- |
+| Punto de rocío | Magnus: γ = ln(HR/100) + a·T/(b+T); T<sub>d</sub> = b·γ / (a − γ), con a = 17.62 y b = 243.12 °C | `SensorTermoHigrometrico` |
+| Índice de calor | Regresión de Rothfusz (NOAA). Solo aplica con T ≥ 26.7 °C; por debajo se reporta T. | `SensorTermoHigrometrico` |
+| Altitud estimada | h = 44330 · [1 − (P / P<sub>0</sub>)<sup>1/5.255</sup>], con P<sub>0</sub> = presión a nivel del mar (configurable) | `SensorBME280` |
+| Índice UV | UVI ≈ V<sub>out</sub> [mV] / 100 (se ajustará al calibrar) | `SensorUV` |
+
+### Salida al Monitor Serie (ejemplo)
+
+Se imprime cada 2 s a 115200 baudios. Sirve para depurar y para comprobar las lecturas al hacer las pruebas.
+
+```
+[BME280] T=24.8 °C  HR=61.2 %  P=848.6 hPa  Alt=1428 m  Rocío=16.9 °C  IC=24.8 °C
+[DHT22]  T=25.1 °C  HR=59.8 %
+[UV]     412 mV  Índice=4.1 (moderado)
+[SALIDAS] Ventilador=52 %  LED=amarillo
+```
+
+### Librerías previstas
+
+- Núcleo **ESP32 para Arduino 3.x** (API `ledcAttach` / `ledcWrite`, igual que en la Práctica 01)
+- `Adafruit BME280 Library` + `Adafruit Unified Sensor`
+- `DHT sensor library` (Adafruit)
+- `Adafruit SSD1306` + `Adafruit GFX`
+
+---
+
+## 4. Esquema de conexiones
+
+El diagrama de bloques y la tabla completa de pines están en [`../diagrams/README.md`](../diagrams/README.md#2-esquema-de-conexiones).
