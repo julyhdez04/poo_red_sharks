@@ -14,13 +14,27 @@ def main() -> None:
     # Lista mixta: cada objeto responde según su propia clase (polimorfismo)
     red_iot = [sensor_temp, actuador_ventilador, sensor_luz]
  
-    for dispositivo in red_iot:
-        dispositivo.conectar()
+    menu = ("\n=== RED IoT - HMI ===\n"
+            "1. Conectar todos los nodos\n"
+            "2. Telemetría de toda la red\n"
+            "0. Salir")
  
-    for dispositivo in red_iot:
-        dispositivo.enviar_telemetria()
+    while True:
+        print(menu)
+        opcion = input("Opción: ").strip()
+ 
+        if opcion == "1":
+            for dispositivo in red_iot:
+                dispositivo.conectar()
+        elif opcion == "2":
+            for dispositivo in red_iot:
+                dispositivo.enviar_telemetria()
+        elif opcion == "0":
+            print("Fin de la simulación.")
+            break
+        else:
+            print("Opción no válida.")
  
  
 if __name__ == "__main__":
     main()
- 
