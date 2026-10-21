@@ -27,11 +27,14 @@ def main() -> None:
     # Lista mixta: cada objeto responde según su propia clase (polimorfismo)
     red_iot = [sensor_temp, actuador_ventilador, sensor_luz]
     sensores = {"TEMP-01": sensor_temp, "LUZ-01": sensor_luz}
+    actuadores = {"VENT-01": actuador_ventilador}
  
     menu = ("\n=== RED IoT - HMI ===\n"
             "1. Conectar todos los nodos\n"
             "2. Telemetría de toda la red\n"
             "3. Cambiar límite de alerta de un sensor\n"
+            "4. Encender un actuador\n"
+            "5. Apagar un actuador\n"
             "0. Salir")
  
     while True:
@@ -55,6 +58,23 @@ def main() -> None:
                     print(f"  Rechazado: {error}")
             elif sensor is None:
                 print("  ID no encontrado.")
+        elif opcion == "4":
+            actuador = elegir(actuadores, "Actuadores")
+            if actuador is None:
+                print("  ID no encontrado.")
+                continue
+            potencia = pedir_numero("  Potencia PWM (0-100): ", int)
+            if potencia is not None:
+                try:
+                    actuador.encender(potencia)
+                except (ValueError, TypeError) as error:
+                    print(f"  Rechazado: {error}")
+        elif opcion == "5":
+            actuador = elegir(actuadores, "Actuadores")
+            if actuador is not None:
+                actuador.apagar()
+            else:
+                print("  ID no encontrado.")
         elif opcion == "0":
             print("Fin de la simulación.")
             break
@@ -64,3 +84,4 @@ def main() -> None:
  
 if __name__ == "__main__":
     main()
+ 
