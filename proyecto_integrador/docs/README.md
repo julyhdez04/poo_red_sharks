@@ -168,7 +168,9 @@ Se imprime cada 2 s a 115200 baudios. Sirve para depurar y para comprobar las le
 
 ---
 
-Prueba de agregado
+-- Prueba de agregado
+--  HOla mundo
+
 
 ## 4. Esquema de conexiones
 
