@@ -1,14 +1,17 @@
-## **Etapa 1. Propuesta y Arquitectura**
-### **EE: Temas Selectos de IIE II (Código: IEDI 18005)**
-#### **Facultad de Instrumentación Electrónica — Universidad Veracruzana**
+# **Etapa 1. Propuesta y Arquitectura**
+
+## **EE: Temas Selectos de IIE II (Código: IEDI 18005)**
+
+### **Facultad de Instrumentación Electrónica — Universidad Veracruzana**
+
 ---
 
-### **Información General del Equipo**
+## **Información General del Equipo**
 
-*   **Número de Etapa:** Etapa 1
-*   **Título del Proyecto:** Estación Meteorológica Automatizada
-*   **Fecha de Entrega:** [16/10/2026]
-*   **Enlace al Repositorio de GitHub:** https://github.com/julyhdez04/poo_red_sharks.git
+* **Número de Etapa:** Etapa 1
+* **Título del Proyecto:** Estación Meteorológica Automatizada
+* **Fecha de Entrega:** [16/10/2026]
+* **Enlace al Repositorio de GitHub:** <https://github.com/julyhdez04/poo_red_sharks.git>
 
 | Nombre Completo del Integrante | Matrícula UV | Usuario de GitHub |
 | :--- | :--- | :--- |
@@ -16,6 +19,7 @@
 | Hernández Hernández Juliana | `S23013963` | [@julyhdez04](https://github.com/julyhdez04) |
 | Gil Martínez Daniel Alberto | `S23013953` | [@Mushi0w0](https://github.com/Mushi0w0) |
 | Navarro Hernández Hugo Jesús | `S23013957` | [@Hiukilll](https://github.com/Hiukilll) |
+
 ---
 
 ## 1. Selección del proyecto
@@ -28,13 +32,18 @@
 
 ### Objetivos específicos
 
-1. Medir temperatura, humedad relativa, presión barométrica y radiación UV con al menos dos transductores distintos.
+1. Medir temperatura, humedad relativa, presión barométrica
+y radiación UV con al menos dos transductores distintos.
 2. Filtrar las lecturas con una media móvil para reducir el ruido de los sensores.
-3. Calcular variables secundarias: **punto de rocío**, **índice de calor** y **altitud estimada**.
+3. Calcular variables secundarias: **punto de rocío**,
+**índice de calor** y **altitud estimada**.
 4. Mostrar los datos en una pantalla OLED y señalizar el riesgo UV con un LED RGB.
-5. Controlar por PWM un ventilador que ventila el protector de radiación según la intensidad del sol.
-6. Imprimir los valores medidos y calculados en el Monitor Serie (115200 baudios) para depurar y verificar el funcionamiento.
-7. Organizar todo el firmware con POO: una superclase abstracta `NodoIoT` de la que heredan sensores, actuadores y la pantalla.
+5. Controlar por PWM un ventilador que ventila el protector de radiación según
+la intensidad del sol.
+6. Imprimir los valores medidos y calculados en el Monitor Serie (115200 baudios)
+para depurar y verificar el funcionamiento.
+7. Organizar todo el firmware con POO: una superclase abstracta `NodoIoT`
+de la que heredan sensores, actuadores y la pantalla.
 
 ---
 
@@ -84,7 +93,7 @@
 | 1 | Resistencia 100 Ω (compuerta del MOSFET) |
 | 1 | Resistencia 150 Ω (LED rojo) |
 | 2 | Resistencia 47 Ω (LED verde y azul) |
-| 1 | Capacitor electrolítico 100 µF / 16 V (en la alimentación del ventilador) |
+| 1 | Capacitor electrolítico 100 µF / 16V (en la alimentación del ventilador) |
 | 1 | Protoboard, cables y fuente USB 5 V / 1 A |
 
 ### Consumo estimado
@@ -102,7 +111,11 @@
 
 ## 3. Arquitectura de software
 
-El firmware se organiza con una jerarquía de clases. La raíz es la superclase abstracta **`NodoIoT`**, que representa cualquier elemento conectado al ESP32 y define la interfaz común: `iniciar()`, `actualizar()` e `imprimirSerie()`. El diagrama completo está en [`../diagrams/README.md`](../diagrams/README.md#1-diagrama-de-clases-uml).
+El firmware se organiza con una jerarquía de clases. La raíz es la
+superclase abstracta **`NodoIoT`**, que representa cualquier elemento
+conectado al ESP32 y define la interfaz común:
+`iniciar()`, `actualizar()` e `imprimirSerie()`.
+El diagrama completo está en [`../diagrams/README.md`](../diagrams/README.md#1-diagrama-de-clases-uml).
 
 | Nivel | Clases | Rol |
 | :--- | :--- | :--- |
@@ -115,13 +128,22 @@ El firmware se organiza con una jerarquía de clases. La raíz es la superclase 
 
 ### Cómo se aplican los pilares de POO
 
-- **Abstracción.** `EstacionMeteorologica` solo llama `nodo->actualizar()` sobre cada `NodoIoT*`, sin conocer el bus (I²C, un hilo, ADC o PWM) que usa cada uno.
-- **Herencia.** `SensorBME280` y `SensorDHT22` heredan de `SensorTermoHigrometrico`, que a su vez hereda de `SensorBase` → `NodoIoT`. Los cálculos de punto de rocío e índice de calor se escriben una sola vez.
-- **Polimorfismo.** `leer()`, `aplicarSalida()`, `iniciar()` e `imprimirSerie()` se redefinen en cada subclase. El ciclo principal trata igual a un sensor que a la pantalla.
-- **Encapsulamiento.**
-  - Las fórmulas (`calcularPuntoRocio()`, `calcularIndiceCalor()`, `calcularAltitud()`, `convertirAIndice()`) son **privadas** (`-`). Desde fuera solo se accede a los getters públicos (`+`).
-  - Las variables medidas son **protegidas** (`#`): las subclases las escriben al leer, pero el resto del programa no puede modificarlas.
-  - `ajustar()` limita el nivel del actuador a 0–100 % antes de escribir el PWM.
+* **Abstracción.** `EstacionMeteorologica` solo llama `nodo->actualizar()`
+sobre cada `NodoIoT*`, sin conocer el bus (I²C, un hilo, ADC o PWM)
+que usa cada uno.
+* **Herencia.** `SensorBME280` y `SensorDHT22` heredan de `SensorTermoHigrometrico`,
+que a su vez hereda de `SensorBase` → `NodoIoT`. Los cálculos de punto
+de rocío e índice de calor se escriben una sola vez.
+* **Polimorfismo.** `leer()`, `aplicarSalida()`, `iniciar()` e `imprimirSerie()`
+se redefinen en cada subclase. El ciclo principal trata igual a un sensor
+que a la pantalla.
+* **Encapsulamiento.**
+  * Las fórmulas (`calcularPuntoRocio()`, `calcularIndiceCalor()`,
+  `calcularAltitud()`, `convertirAIndice()`) son **privadas** (`-`).
+  Desde fuera solo se accede a los getters públicos (`+`).
+  * Las variables medidas son **protegidas** (`#`): las subclases las escriben al
+  leer, pero el resto del programa no puede modificarlas.
+  * `ajustar()` limita el nivel del actuador a 0–100 % antes de escribir el PWM.
 
 ### Temporización (sin `delay()`)
 
@@ -135,9 +157,14 @@ El firmware se organiza con una jerarquía de clases. La raíz es la superclase 
 
 ### Reglas de control
 
-- **Ventilador:** se apaga con índice UV < 1 (de noche). Con más sol, el nivel crece en proporción al índice UV, desde 30 % hasta 100 % con UV ≥ 8; el 30 % es el mínimo para que el motor arranque. Si la temperatura supera 32 °C, el ventilador sube al menos a 60 %.
-- **LED RGB:** muestra el color correspondiente al índice UV filtrado. Si un sensor acumula fallas, parpadea en blanco.
-- **Validación cruzada:** si el BME280 y el DHT22 difieren en más de 2 °C, se muestra un aviso en la OLED y en el Monitor Serie.
+* **Ventilador:** se apaga con índice UV < 1 (de noche). Con más sol, el nivel
+crece en proporción al índice UV, desde 30 % hasta 100 % con UV ≥ 8;
+el 30 % es el mínimo para que el motor arranque. Si la temperatura
+supera 32 °C, el ventilador sube al menos a 60 %.
+* **LED RGB:** muestra el color correspondiente al índice UV filtrado.
+Si un sensor acumula fallas, parpadea en blanco.
+* **Validación cruzada:** si el BME280 y el DHT22 difieren en más de 2 °C,
+se muestra un aviso en la OLED y en el Monitor Serie.
 
 ### Variables secundarias (métodos privados)
 
@@ -150,7 +177,8 @@ El firmware se organiza con una jerarquía de clases. La raíz es la superclase 
 
 ### Salida al Monitor Serie (ejemplo)
 
-Se imprime cada 2 s a 115200 baudios. Sirve para depurar y para comprobar las lecturas al hacer las pruebas.
+Se imprime cada 2 s a 115200 baudios. Sirve para depurar y para
+comprobar las lecturas al hacer las pruebas.
 
 ```
 [BME280] T=24.8 °C  HR=61.2 %  P=848.6 hPa  Alt=1428 m  Rocío=16.9 °C  IC=24.8 °C
@@ -161,10 +189,11 @@ Se imprime cada 2 s a 115200 baudios. Sirve para depurar y para comprobar las le
 
 ### Librerías previstas
 
-- Núcleo **ESP32 para Arduino 3.x** (API `ledcAttach` / `ledcWrite`, igual que en la Práctica 01)
-- `Adafruit BME280 Library` + `Adafruit Unified Sensor`
-- `DHT sensor library` (Adafruit)
-- `Adafruit SSD1306` + `Adafruit GFX`
+* Núcleo **ESP32 para Arduino 3.x** (API `ledcAttach` / `ledcWrite`, igual que
+en la Práctica 01)
+* `Adafruit BME280 Library` + `Adafruit Unified Sensor`
+* `DHT sensor library` (Adafruit)
+* `Adafruit SSD1306` + `Adafruit GFX`
 
 ---
 
