@@ -64,3 +64,16 @@ class NodoSensor(NodoIoT):
     @property
     def rango_max(self) -> float:
         return self.__rango_max
+    
+    def leer(self) -> float:
+        """Simula una medición dentro del rango del sensor."""
+        self.__lectura = round(
+            random.uniform(self.__rango_min, self.__rango_max), 1)
+        return self.__lectura
+
+    def enviar_telemetria(self) -> None:
+        """Polimorfismo: un sensor reporta su lectura actual."""
+        lectura = self.leer()
+        aviso = "  [ALERTA: supera el límite]" if lectura > self.__limite_alerta else ""
+        print(f"[{self.id_dispositivo}] {self.magnitud}: {lectura} {self.unidad} "
+              f"(límite {self.__limite_alerta} {self.unidad}){aviso}")
