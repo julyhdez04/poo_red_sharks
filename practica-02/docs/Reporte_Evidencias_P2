@@ -1,1 +1,208 @@
 
+# ![alt text](image-2.png)
+## POO Red Sharks
+## **Reporte de Práctica 1 de Laboratorio — Programación Orientada a Objetos**
+### **EE: Temas Selectos de IIE II (Código: IEDI 18005)**
+#### **Facultad de Instrumentación Electrónica — Universidad Veracruzana**
+
+---
+
+### **Información General del Equipo**
+*   Práctica 2: 
+*   Sistema Modular de Nodos IoT (Herencia y Polimorfismo en Python)
+*   **Fecha de Entrega:** 07/11/2026
+*   **Enlace al Repositorio de GitHub:** https://github.com/julyhdez04/poo_red_sharks
+
+| Nombre Completo del Integrante | Matrícula UV | Usuario de GitHub |
+| :--- | :--- | :--- |
+| **Castillo Acosta Josué Marcelo** | `S23013913` | [@Pinging78](https://github.com/Pinging78) |
+| **Hernández Hernández Juliana** | `S23013963` | [@julyhdez04](https://github.com/julyhdez04) |
+| **Gil Martínez Daniel Alberto** | `S23013953` | [@Mushi0w0](https://github.com/Mushi0w0) |
+| **Navarro Hernández Hugo Jesús** | `S23013957` | [@Hiukilll](https://github.com/Hiukilll) |
+
+---
+
+## 1. Objetivos
+
+* **Objetivo General:** Desarrollar un sistema modular de nodos IoT en Python empleando los pilares de la Programación Orientada a Objetos (herencia, polimorfismo y encapsulamiento) para simular la gestión y comunicación de múltiples dispositivos sin requerir hardware físico.
+
+* **Objetivos Específicos:**
+  * Diseñar una superclase base `NodoIoT` que centralice los atributos y comportamientos comunes de la red.
+  * Implementar subclases especializadas (`NodoSensor` y `NodoActuador`) aplicando herencia y encapsulamiento riguroso para proteger los datos mediante métodos *setter* con validación.
+  * Ejecutar un bucle polimórfico iterando sobre una colección heterogénea de objetos, logrando que el sistema identifique dinámicamente el comportamiento de cada dispositivo sin el uso de condicionales.
+
+## 2. Desarrollo Ordenado por Módulos
+
+### 2.1. Superclase Padre (`NodoIoT`)
+
+En este módulo se definió la clase base fundamental para todos los dispositivos de la red. Se establecieron los atributos de instancia compartidos (`id_dispositivo`, `ip`, `ubicacion`, `conectado`) y se diseñaron los métodos base, estableciendo el contrato para las subclases.
+
+**Archivo:** `src/nodo_iot.py`
+
+```python
+class NodoIoT:
+    def __init__(self, id_dispositivo: str, ip: str, ubicacion: str):
+        self.id_dispositivo = id_dispositivo
+        self.ip = ip
+        self.ubicacion = ubicacion
+        self.conectado = False
+
+    def conectar(self):
+        self.conectado = True
+        print(f"[{self.id_dispositivo}] Conectado exitosamente a la red ({self.ip}).")
+
+    def enviar_telemetria(self):
+        print(f"[{self.id_dispositivo}] Enviando telemetría de {self.ubicacion}...")
+```
+
+### 2.2. Subclases Hijas: Herencia y Encapsulamiento
+
+Se aplicó el principio de herencia bidireccional, reutilizando la lógica del constructor padre mediante `super()`. Se inició la protección del estado interno utilizando atributos privados (ej. `__limite_alerta`).
+
+**Archivo:** `src/dispositivos.py`
+
+```python
+from nodo_iot import NodoIoT
+
+class NodoSensor(NodoIoT):
+    def __init__(self, id_dispositivo: str, ip: str, ubicacion: str, limite_alerta: float = 50.0):
+        super().__init__(id_dispositivo, ip, ubicacion)
+        self.__limite_alerta = limite_alerta
+        self.lectura_actual = 0.0
+
+# [Aquí falta agregar la clase NodoActuador y los métodos setter con validación porque lo pide en eminus]
+```
+
+### 2.3. Bucle Polimórfico (Script Principal)
+
+La orquestación del sistema se realiza iterando sobre la lista `red_iot`. El método `enviar_telemetria()` se invoca uniformemente, y el intérprete resuelve dinámicamente la implementación correspondiente. 
+
+**Archivo:** `src/main.py`
+
+```python
+"""Script principal: simulación interactiva de la red IoT."""
+ 
+from nodos_hijos import NodoSensor, NodoActuador
+ 
+ 
+def pedir_numero(mensaje: str, tipo=float):
+    try:
+        return tipo(input(mensaje))
+    except ValueError:
+        print("  Entrada no válida: se esperaba un número.")
+        return None
+ 
+ 
+def elegir(diccionario: dict, etiqueta: str):
+    print(f"  {etiqueta} disponibles: {', '.join(diccionario)}")
+    return diccionario.get(input("  ID: ").strip())
+ 
+ 
+def main() -> None:
+    sensor_temp = NodoSensor("TEMP-01", "192.168.1.10", "Invernadero",
+                             "Temperatura", "°C", -10, 60, 30)
+    sensor_luz = NodoSensor("LUZ-01", "192.168.1.11", "Invernadero",
+                            "Luz", "lux", 0, 1000, 800)
+    actuador_ventilador = NodoActuador("VENT-01", "192.168.1.20", "Invernadero",
+                                       "Ventilador")
+ 
+    # Lista mixta: cada objeto responde según su propia clase (polimorfismo)
+    red_iot = [sensor_temp, actuador_ventilador, sensor_luz]
+    sensores = {"TEMP-01": sensor_temp, "LUZ-01": sensor_luz}
+    actuadores = {"VENT-01": actuador_ventilador}
+ 
+    menu = ("\n=== RED IoT - HMI ===\n"
+            "1. Conectar todos los nodos\n"
+            "2. Telemetría de toda la red\n"
+            "3. Cambiar límite de alerta de un sensor\n"
+            "4. Encender un actuador\n"
+            "5. Apagar un actuador\n"
+            "0. Salir")
+ 
+    while True:
+        print(menu)
+        opcion = input("Opción: ").strip()
+ 
+        if opcion == "1":
+            for dispositivo in red_iot:
+                dispositivo.conectar()
+        elif opcion == "2":
+            for dispositivo in red_iot:
+                dispositivo.enviar_telemetria()
+        elif opcion == "3":
+            sensor = elegir(sensores, "Sensores")
+            valor = pedir_numero("  Nuevo límite: ") if sensor else None
+            if valor is not None:
+                try:
+                    sensor.limite_alerta = valor
+                    print(f"  Límite actualizado a {sensor.limite_alerta}")
+                except (ValueError, TypeError) as error:
+                    print(f"  Rechazado: {error}")
+            elif sensor is None:
+                print("  ID no encontrado.")
+        elif opcion == "4":
+            actuador = elegir(actuadores, "Actuadores")
+            if actuador is None:
+                print("  ID no encontrado.")
+                continue
+            potencia = pedir_numero("  Potencia PWM (0-100): ", int)
+            if potencia is not None:
+                try:
+                    actuador.encender(potencia)
+                except (ValueError, TypeError) as error:
+                    print(f"  Rechazado: {error}")
+        elif opcion == "5":
+            actuador = elegir(actuadores, "Actuadores")
+            if actuador is not None:
+                actuador.apagar()
+            else:
+                print("  ID no encontrado.")
+        elif opcion == "0":
+            print("Fin de la simulación.")
+            break
+        else:
+            print("Opción no válida.")
+ 
+ 
+if __name__ == "__main__":
+    main()
+```
+
+### 2.4. Diagrama de Clases UML
+
+El diseño estructural modela la herencia hacia la superclase `NodoIoT` y la tipificación de variables, sirviendo como mapa previo a la codificación.
+
+# ![alt text](Diagrama_Clases_UML_P2.png)
+
+
+## 3. Evidencias de Hardware y Esquemáticos
+
+> **Nota Técnica:** Conforme a la guía de la Práctica 2, esta iteración es 100% simulación de software en Python enfocada en POO. Las evidencias de protoboard y diagramas esquemáticos con microcontroladores se desarrollarán en la Práctica 3. A continuación se evidencia el funcionamiento del HMI (Human-Machine Interface) simulado.
+
+**Captura de Consola (Ejecución del HMI y Polimorfismo):**
+
+```text
+Pendiente por agregar
+```
+
+## 4. Videos Demostrativos y Enlaces
+
+* **Enlace al video demostrativo:** `Pendiente por agregar`
+
+## 5. Análisis de Resultados (Discusión Técnica)
+
+La simulación estructurada en el archivo principal arroja resultados prometedores respecto al diseño de la red IoT. La **instanciación** de múltiples nodos a partir de las subclases evidencia cómo la **herencia** reduce drásticamente la redundancia de código, al delegar la conexión y el almacenamiento de IP y ubicación a la superclase `NodoIoT`. En el `main.py`, se observa una sólida implementación de validación de entradas de usuario, preparando el terreno para un correcto **encapsulamiento** de las señales simuladas.
+
+El logro más destacable del sistema actual es la correcta planificación del **polimorfismo**. Al agrupar los distintos objetos en la lista mixta `red_iot`, el ciclo `for` es capaz de invocar de manera abstracta métodos como `enviar_telemetria()` y `conectar()`. Esto garantiza que la lógica de iteración se mantenga ajena al tipo específico de dispositivo (sensor o actuador), dotando a la arquitectura de una escalabilidad inherente.
+
+## 6. Conclusiones Críticas
+
+* Durante esta práctica, comprobamos cómo la herencia nos permite centralizar el comportamiento de los dispositivos IoT. Reutilizar el constructor del padre con `super()` nos ahorró repetir variables en cada nuevo tipo de sensor.
+
+* El reto principal y el mayor aprendizaje fue el polimorfismo. Al programar la simulación HMI en el archivo main, pudimos iterar una lista con objetos distintos sin usar un solo `if/else` para diferenciarlos, lo que hace el código mucho más limpio.
+
+* También cabe recalcar que el comenzar con el Diagrama UML fue clave para visualizar la jerarquía. La POO nos da las herramientas para modelar sistemas físicos (como actuadores y límites de alerta) en bloques de código modulares y seguros, sentando las bases para cuando integremos el hardware real."
+
+## 7. Referencias Bibliográficas
+
+* Python Software Foundation. (2023). *The Python Tutorial: Classes (Inheritance and Private Variables)*. Recuperado de https://docs.python.org/3/tutorial/classes.html
