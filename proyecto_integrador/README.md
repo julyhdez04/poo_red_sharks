@@ -33,7 +33,7 @@ Los diagramas (UML y esquema de conexiones) están en [`../diagrams/README.md`](
 | Sensor | Variable(s) | Interfaz | Pin ESP32 | Por qué se eligió |
 | :--- | :--- | :--- | :---: | :--- |
 | **BME280** | Temperatura, humedad, presión | I²C (dir. `0x76`) | SDA 21 · SCL 22 | Es el sensor principal. Da la presión necesaria para calcular la altitud y tiene buena precisión (±1 hPa, ±1 °C). |
-| **DHT22** | Temperatura, humedad | Digital de un hilo | GPIO 4 | Es un sensor de respaldo. Permite comparar sus lecturas con las del BME280 para detectar fallas, y muestra el polimorfismo con dos sensores de la misma familia. |
+| **NEO6VM2** | Latitud, longitud y altitud | UART (serie, 9600 baudios) | GPIO 16 (RX2) y GPIO 17 (TX2) | Módulo GPS que entrega la posición y la altitud del sistema, además de la hora UTC y la velocidad. Muestra el polimorfismo al implementar la misma interfaz de sensor que los demás dispositivos, aunque su fuente de datos sea satelital. |
 | **GUVA-S12SD** | Radiación UV → índice UV | Analógica (ADC1) | GPIO 34 | Entrega un voltaje proporcional a la radiación UV (≈ 0–1 V). Se usa ADC1, el convertidor más confiable del ESP32 para lecturas analógicas. |
  
 ### Salidas (actuadores e indicadores)
@@ -42,5 +42,8 @@ Los diagramas (UML y esquema de conexiones) están en [`../diagrams/README.md`](
 | :--- | :--- | :--- | :---: | :--- |
 | **Ventilador 5 V** | Potencia (PWM vía MOSFET IRLZ44N) | PWM 25 kHz, 8 bits | GPIO 18 | Ventila el protector de radiación para que el sol no caliente los sensores y falsee la temperatura. Su velocidad depende del índice UV. |
 | **LED RGB** (cátodo común) | Indicador PWM | PWM 5 kHz, 8 bits ×3 | GPIO 25 · 26 · 27 | Indica el nivel de riesgo UV con la escala de colores de la OMS. |
+| **LED rojo** (5 mm, resistencia de 220 Ω) | Indicador digital | Digital ON/OFF · interfaz `Indicador` de la API | GPIO 32 | Indica que el GPS aún no está calibrado. Parpadea mientras busca satélites y queda fijo si se pierde la señal. |
+| **LED verde** (5 mm, resistencia de 220 Ω) | Indicador digital | Digital ON/OFF · interfaz `Indicador` de la API | GPIO 33 | Indica que el GPS ya está calibrado, es decir, que tiene fix y entrega posición y altitud válidas. Se apaga si pierde la señal. |
 | **OLED SSD1306 0.96"** | Indicador (pantalla) | I²C (dir. `0x3C`) | SDA 21 · SCL 22 | Muestra los datos en tres páginas que se alternan: clima, presión/altitud y UV/estado. |
+ 
 
