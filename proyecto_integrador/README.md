@@ -40,10 +40,8 @@ Los diagramas (UML y esquema de conexiones) están en [`../diagrams/README.md`](
  
 | Salida | Tipo | Interfaz | Pin ESP32 | Función |
 | :--- | :--- | :--- | :---: | :--- |
-| **Ventilador 5 V** | Potencia (PWM vía MOSFET IRLZ44N) | PWM 25 kHz, 8 bits | GPIO 18 | Ventila el protector de radiación para que el sol no caliente los sensores y falsee la temperatura. Su velocidad depende del índice UV. |
-| **LED RGB** (cátodo común) | Indicador PWM | PWM 5 kHz, 8 bits ×3 | GPIO 25 · 26 · 27 | Indica el nivel de riesgo UV con la escala de colores de la OMS. |
 | **LED rojo** (5 mm, resistencia de 220 Ω) | Indicador digital | Digital ON/OFF · interfaz `Indicador` de la API | GPIO 32 | Indica que el GPS aún no está calibrado. Parpadea mientras busca satélites y queda fijo si se pierde la señal. |
 | **LED verde** (5 mm, resistencia de 220 Ω) | Indicador digital | Digital ON/OFF · interfaz `Indicador` de la API | GPIO 33 | Indica que el GPS ya está calibrado, es decir, que tiene fix y entrega posición y altitud válidas. Se apaga si pierde la señal. |
-| **OLED SSD1306 0.96"** | Indicador (pantalla) | I²C (dir. `0x3C`) | SDA 21 · SCL 22 | Muestra los datos en tres páginas que se alternan: clima, presión/altitud y UV/estado. |
+
  
 
