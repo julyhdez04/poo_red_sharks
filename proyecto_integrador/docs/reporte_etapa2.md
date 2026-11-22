@@ -241,15 +241,17 @@ Los campos `t`, `p` y `h` salen de `SensorBME280` (°C, hPa y %). El bloque `gps
 
 #### **4.1. Captura de Pantalla de la API**
 
-> 
+![Captura del Panel Principal de la API](evidencias/API.jpeg)
 
 
 #### **4.2. Fotografía del Circuito Físico Armado (Garantía de Autoría)**
 
+![Circuito Físico Armado](evidencias/Circuito_fisico.jpeg)
 
+![Estación Meteorológica y Panel Web en Funcionamiento](evidencias/API_Circuito.jpeg)
 
-> 
+ 
 #### **4.3. Enlace Directo al Video Demostrativo (Máximo 1.5 minutos)**
 
-*   **Enlace de Visualización:** []
+*   **Enlace de Visualización:** [https://drive.google.com/drive/folders/1wsBi475p7gbk0lMJU0xp99_p8puwh9vw?usp=sharing]
 
