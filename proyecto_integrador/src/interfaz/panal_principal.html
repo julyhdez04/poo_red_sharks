@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panal principal</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1a1d24;--mut:#6b7280;--bd:#e3e5ea;--t:#e4572e;--p:#2e86de;--ok:#16a34a;--bad:#d97706;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1218;--card:#181c25;--tx:#e8eaf0;--mut:#8b93a3;--bd:#272c38;--t:#ff7a50;--p:#5aa9ff;--ok:#4ade80;--bad:#fbbf24}}
+:root[data-theme="dark"]{--bg:#0f1218;--card:#181c25;--tx:#e8eaf0;--mut:#8b93a3;--bd:#272c38;--t:#ff7a50;--p:#5aa9ff;--ok:#4ade80;--bad:#fbbf24}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:20px;margin:0}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font:inherit}
+button{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+button.pri{background:var(--p);color:#fff;border-color:var(--p)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mut);display:inline-block;margin-right:6px}
+.dot.on{background:var(--ok)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+.lbl{color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.val{font-size:30px;font-weight:600;margin-top:4px}.val small{font-size:14px;color:var(--mut);font-weight:400}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:12px}
+canvas{width:100%;height:190px;display:block}
+.sub{color:var(--mut);font-size:13px;margin-top:6px}
+textarea{width:100%;height:80px;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font:12px ui-monospace,monospace}
+#log{height:110px;overflow:auto;font:12px ui-monospace,monospace;color:var(--mut);white-space:pre-wrap}
+a{color:var(--p)}
+</style></head><body><main>
+<header>
+ <h1>Panal principal</h1>
+ <div class="bar"><span><span class="dot" id="dot"></span><span id="st">Desconectado</span></span>
+ <select id="baud" title="Baudios"><option>9600</option><option>57600</option><option selected>115200</option></select><button class="pri" id="bCon">Conectar USB</button><button id="bClr">Limpiar</button></div>
+</header>
+
+<div class="grid">
+ <div class="card"><div class="lbl">Temperatura</div><div class="val" id="vT">--<small> °C</small></div><div class="sub" id="sT">mín/máx: --</div></div>
+ <div class="card"><div class="lbl">Presión</div><div class="val" id="vP">--<small> hPa</small></div><div class="sub" id="sP">mín/máx: --</div></div>
+ <div class="card"><div class="lbl">Humedad</div><div class="val" id="vH">--<small> %</small></div><div class="sub" id="sH">mín/máx: --</div></div>
+ <div class="card"><div class="lbl">Altitud (barométrica)</div><div class="val" id="vA">--<small> m</small></div><div class="sub">Estimada a 1013.25 hPa</div></div>
+ <div class="card"><div class="lbl">Enlace LoRa (TX)</div><div class="val" id="vL" style="font-size:22px">--</div><div class="sub" id="sL">Fallidos: -- · último: --</div></div>
+ <div class="card"><div class="lbl">GPS</div><div class="val" id="vF" style="font-size:22px">--</div><div class="sub" id="sF">Satélites: --</div></div>
+</div>
+
+<div class="two">
+ <div class="card"><div class="lbl">Temperatura (°C)</div><canvas id="cT"></canvas></div>
+ <div class="card"><div class="lbl">Presión (hPa)</div><canvas id="cP"></canvas></div>
+ <div class="card"><div class="lbl">Humedad (%)</div><canvas id="cH"></canvas></div>
+</div>
+
+<div class="two">
+ <div class="card"><div class="lbl">Posición GPS</div>
+  <div class="val" id="vC" style="font-size:20px">--</div>
+  <div class="sub" id="sC">Altitud GPS: -- · Hora: --</div>
+  <div class="sub"><a id="lnk" href="#" target="_blank" rel="noopener" hidden>Abrir en Google Maps</a></div></div>
+ <div class="card"><div class="lbl">Trayectoria</div><canvas id="cM"></canvas></div>
+</div>
+
+<div class="card" style="margin-bottom:12px">
+ <div class="lbl">Registro serial</div><div id="log"></div>
+</div>
+<p class="sub">Conecta la Pico por USB (Chrome o Edge). Cierra Thonny antes, porque solo un programa puede usar el puerto.</p>
+</main>
+<script>
+const $=id=>document.getElementById(id), MAX=120;
+const S={t:null,p:null,h:null,H:[],gps:{fix:false,lat:null,lon:null,alt:null,sats:0,hora:null},trk:[],tx:{n:0,ok:0,bad:0,last:null},rssi:null,snr:null};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function log(m){const l=$('log');l.textContent+=m+'\n';if(l.textContent.length>4000)l.textContent=l.textContent.slice(-3000);l.scrollTop=l.scrollHeight}
+
+// ---- Parser: línea "TX ok t;p;h;fix;lat;lon;alt;sats;hora" que imprime main.py ----
+function feed(raw){
+  const line=raw.trim(); if(!line)return; log(line);
+  if(/^TX\s/i.test(line))return feedTX(line);
+  feedRX(line);
+}
+// Formato del receptor (Nano): una línea por dato
+function feedRX(line){
+  let m;
+  if(m=line.match(/^Temperatura:\s*(-?[\d.]+)/)){S.t=parseFloat(m[1])}
+  else if(m=line.match(/^Humedad:\s*([\d.]+)/)){S.h=parseFloat(m[1]);if(S.H.length)S.H[S.H.length-1].h=S.h}
+  else if(m=line.match(/^Presi.n:\s*([\d.]+)/)){S.p=parseFloat(m[1]);S.tx.n++;S.tx.ok++;S.tx.last=Date.now();if(S.t!==null){S.H.push({t:S.t,p:S.p,h:S.h});if(S.H.length>MAX)S.H.shift()}}
+  else if(m=line.match(/^GPS:\s*lat\s*(-?[\d.]+),\s*lon\s*(-?[\d.]+)/)){
+    S.gps.fix=true;S.gps.lat=+m[1];S.gps.lon=+m[2];
+    const l=S.trk[S.trk.length-1];if(!l||l[0]!==S.gps.lat||l[1]!==S.gps.lon){S.trk.push([S.gps.lat,S.gps.lon]);if(S.trk.length>500)S.trk.shift()}}
+  else if(m=line.match(/^alt\s*(\S+)\s*m,\s*sat\S*\s*(\d+),\s*(.+)$/)){S.gps.alt=m[1]==='None'?null:+m[1];S.gps.sats=+m[2];S.gps.hora=m[3]}
+  else if(m=line.match(/^GPS:\s*buscando.*:\s*(\d+)/)){S.gps.fix=false;S.gps.sats=+m[1]}
+  else if(m=line.match(/^LoRa RSSI\s*(-?[\d.]+)\s*dBm,\s*SNR\s*(-?[\d.]+)/)){S.rssi=+m[1];S.snr=+m[2];render()}
+  else if(/^-{5,}/.test(line)){render()}
+  if(/^(alt|GPS: buscando|Presi|Humedad)/.test(line))render();
+}
+// Formato de la Pico transmisora: TX ok t;p;h;fix;lat;lon;alt;sats;hora
+function feedTX(line){
+  const m=line.match(/^TX\s+(ok|FALL\S*)\s+(.+)$/i); if(!m)return;
+  const ok=m[1].toLowerCase()==='ok';
+  S.tx.n++; if(ok)S.tx.ok++; else S.tx.bad++; S.tx.last=Date.now();
+  const c=m[2].split(';');
+  const t=parseFloat(c[0]),p=parseFloat(c[1]),h=parseFloat(c[2]);
+  if(c.length<9||isNaN(t)||isNaN(p)||isNaN(h)){render();return}
+  S.t=t;S.p=p;S.h=h;S.H.push({t,p,h});if(S.H.length>MAX)S.H.shift();
+  const g=S.gps; g.fix=c[3]==='1'; g.sats=parseInt(c[7])||0; g.hora=c[8]||null;
+  if(g.fix&&c[4]!==''&&c[5]!==''){
+    g.lat=+c[4];g.lon=+c[5];g.alt=c[6]===''?null:+c[6];
+    const l=S.trk[S.trk.length-1];
+    if(!l||l[0]!==g.lat||l[1]!==g.lon){S.trk.push([g.lat,g.lon]);if(S.trk.length>500)S.trk.shift()}
+  }
+  render();
+}
+
+// ---- Render ----
+const f=(v,d)=>v===null||v===undefined?'--':v.toFixed(d);
+function render(){
+  const T=S.H.map(h=>h.t),P=S.H.map(h=>h.p);
+  $('vT').innerHTML=f(S.t,2)+'<small> °C</small>';$('vP').innerHTML=f(S.p,2)+'<small> hPa</small>';$('vH').innerHTML=f(S.h,1)+'<small> %</small>';
+  if(T.length){$('sT').textContent='mín/máx: '+f(Math.min(...T),1)+' / '+f(Math.max(...T),1);$('sP').textContent='mín/máx: '+f(Math.min(...P),1)+' / '+f(Math.max(...P),1);const Hh=S.H.map(h=>h.h).filter(v=>v!=null);if(Hh.length)$('sH').textContent='mín/máx: '+f(Math.min(...Hh),1)+' / '+f(Math.max(...Hh),1)}
+  if(S.p)$('vA').innerHTML=Math.round(44330*(1-Math.pow(S.p/1013.25,0.1903)))+'<small> m</small>';
+  const g=S.gps;
+  $('vF').textContent=g.fix?'Fix obtenido':'Buscando señal…';$('vF').style.color=g.fix?css('--ok'):css('--bad');
+  $('sF').textContent='Satélites: '+g.sats;
+  if(g.fix&&g.lat!==null){$('vC').textContent=g.lat.toFixed(6)+', '+g.lon.toFixed(6);
+    $('sC').textContent='Altitud GPS: '+(g.alt===null?'--':g.alt+' m')+' · Hora: '+(g.hora||'--');
+    const a=$('lnk');a.hidden=false;a.href='https://www.google.com/maps?q='+g.lat+','+g.lon}
+  else{$('vC').textContent='Sin posición';$('lnk').hidden=true}
+  chart($('cT'),T,css('--t'));chart($('cP'),P,css('--p'));chart($('cH'),S.H.map(h=>h.h).filter(v=>v!=null),'#14b8a6');track();linkInfo();
+}
+function linkInfo(){
+  const t=S.tx,v=$('vL');
+  if(!t.n){v.textContent='--';v.style.color='';$('sL').textContent='Fallidos: -- · último: --';return}
+  const age=Math.round((Date.now()-t.last)/1000);
+  v.textContent=t.ok+' / '+t.n+' ok';
+  v.style.color=age>10?css('--bad'):css('--ok');
+  $('sL').textContent='Fallidos: '+t.bad+' · último hace '+age+' s'+(age>10?' (¿sin datos?)':'')+(S.rssi!==null?' · RSSI '+S.rssi+' dBm · SNR '+S.snr+' dB':'');
+}
+setInterval(linkInfo,1000);
+function setup(c){const r=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*r;c.height=h*r;const x=c.getContext('2d');x.setTransform(r,0,0,r,0,0);x.clearRect(0,0,w,h);return[x,w,h]}
+function chart(c,d,col){
+  const[x,w,h]=setup(c);x.font='11px system-ui';x.fillStyle=css('--mut');
+  if(d.length<2){x.fillText('Esperando datos…',10,20);return}
+  let mn=Math.min(...d),mx=Math.max(...d);if(mx-mn<0.2){mn-=.1;mx+=.1}
+  const L=44,B=18,Tp=8,pw=w-L-8,ph=h-B-Tp;
+  x.strokeStyle=css('--bd');
+  for(let i=0;i<=3;i++){const y=Tp+ph*i/3;x.beginPath();x.moveTo(L,y);x.lineTo(w-8,y);x.stroke();x.fillText((mx-(mx-mn)*i/3).toFixed(1),4,y+4)}
+  x.strokeStyle=col;x.lineWidth=2;x.beginPath();
+  d.forEach((v,i)=>{const px=L+pw*i/(MAX-1),py=Tp+ph*(1-(v-mn)/(mx-mn));i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
+  x.fillStyle=css('--mut');x.fillText('últimas '+d.length+' lecturas (3 s c/u)',L,h-4);
+}
+function track(){
+  const[x,w,h]=setup($('cM'));x.font='11px system-ui';x.fillStyle=css('--mut');
+  if(!S.trk.length){x.fillText('Sin puntos GPS todavía',10,20);return}
+  const la=S.trk.map(p=>p[0]),lo=S.trk.map(p=>p[1]);
+  let a0=Math.min(...la),a1=Math.max(...la),o0=Math.min(...lo),o1=Math.max(...lo);
+  const pad=0.0002;a0-=pad;a1+=pad;o0-=pad;o1+=pad;
+  const k=Math.min((w-30)/((o1-o0)*Math.cos((a0+a1)/2*Math.PI/180)),(h-30)/(a1-a0));
+  const cx=(w-(o1-o0)*Math.cos((a0+a1)/2*Math.PI/180)*k)/2,cy=(h-(a1-a0)*k)/2;
+  const P=p=>[cx+(p[1]-o0)*Math.cos((a0+a1)/2*Math.PI/180)*k,h-cy-(p[0]-a0)*k];
+  x.strokeStyle=css('--p');x.lineWidth=2;x.beginPath();S.trk.forEach((p,i)=>{const[X,Y]=P(p);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();
+  const[X,Y]=P(S.trk[S.trk.length-1]);x.fillStyle=css('--t');x.beginPath();x.arc(X,Y,6,0,7);x.fill();
+  x.fillStyle=css('--mut');x.fillText('N ↑',w-28,14);
+}
+
+// ---- Web Serial ----
+let port=null,reader=null,pipe=null,demoT=null;
+async function desconectar(){
+  try{if(reader)await reader.cancel()}catch(e){}
+  try{if(pipe)await pipe}catch(e){}
+  try{if(port)await port.close()}catch(e){}
+  reader=null;pipe=null;port=null;status(false,'Desconectado');$('bCon').textContent='Conectar USB';
+}
+function status(on,txt){$('dot').classList.toggle('on',on);$('st').textContent=txt}
+$('bCon').onclick=async()=>{
+  if(port){await desconectar();return}
+  if(!('serial' in navigator)){alert('Web Serial no está disponible aquí. Usa Chrome/Edge, abre el archivo localmente o pega la salida abajo.');return}
+  try{
+    port=await navigator.serial.requestPort();if(!port.readable)await port.open({baudRate:+$('baud').value});
+    status(true,'Conectado');$('bCon').textContent='Desconectar';
+    const dec=new TextDecoderStream();pipe=port.readable.pipeTo(dec.writable).catch(()=>{});
+    reader=dec.readable.getReader();const rd=reader;let buf='';
+    while(true){const{value,done}=await rd.read();if(done)break;buf+=value;const ls=buf.split(/\r?\n/);buf=ls.pop();ls.forEach(feed)}
+  }catch(e){log('Error: '+e.message);await desconectar()}
+};
+
+$('bClr').onclick=()=>{S.t=S.p=S.h=null;S.H=[];S.trk=[];S.tx={n:0,ok:0,bad:0,last:null};S.rssi=S.snr=null;S.gps={fix:false,lat:null,lon:null,alt:null,sats:0,hora:null};$('log').textContent='';render()};
+addEventListener('resize',render);render();
+</script></body></html>
