@@ -7,9 +7,9 @@
 
 ### **Información General del Equipo**
 
-*   **Número de Práctica / Etapa:** Proyecto Integrador — [Etapa X]
+*   **Número de Práctica / Etapa:** Proyecto Integrador — [Etapa 2]
 *   **Título del Proyecto:** Estación Meteorológica Automatizada con Raspberry Pi Pico y API
-*   **Fecha de Entrega:** [DD/MM/AAAA]
+*   **Fecha de Entrega:** 21/11/2026
 *   **Enlace al Repositorio de GitHub:** <https://github.com/julyhdez04/poo_red_sharks.git>
 *   **Repositorio de la API (servidor y panel):** <https://github.com/SNPAIX/API-SENSOR-UNAM.git>
 
