@@ -29,9 +29,11 @@ El sistema implementado utiliza un microcontrolador **ESP32** programado en C++ 
 Cada dispositivo físico se modela como una subclase que hereda de la superclase abstracta `NodoIoT`, permitiendo gestionar ambos componentes de manera uniforme mediante un arreglo polimórfico de punteros (`NodoIoT* red[2]`) en el ciclo principal del microcontrolador.
 
 #### **1.1. Diagrama de Clases UML**
+**Salida del Monitor Serie en estado normal (`GND` ➔ lectura `0`):**
+![Monitor Serie Estado OK](Evidencias/Ok.jpeg)
 
-![Diagrama de Clases UML](Evidencias/Diagrama%20de%20Clases%20UML.png)
-
+**Salida del Monitor Serie en estado de alerta (`3V3` ➔ lectura `4095`):**
+![Monitor Serie Estado Alerta](Evidencias/Alerta.jpeg)
 #### **1.2. Conexiones de Hardware (ESP32)**
 
 | Componente Físico | Clase Asociada | Interfaz / Tipo | Pin ESP32 | Notas Técnicas |
