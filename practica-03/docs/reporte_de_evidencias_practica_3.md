@@ -103,16 +103,16 @@ En `main.cpp`, las instancias físicas se almacenan en el arreglo `NodoIoT* red[
 
 ---
 
-#### **4.2. Fotografías del Circuito Físico Armado en Protoboard**
+#### **4.2. Fotografías del Circuito Físico Armado (Conexión con Cables Dupont)**
 
-> **[AQUÍ VA LA FOTOGRAFÍA DE LA VISTA GENERAL DEL CIRCUITO EN PROTOBOARD]**
->
-`![Circuito Físico Vista General](circuito_general_p3.jpeg)`
+**1. Vista general e identificación de pines (`GPIO 34`, `3V3` y `GND`):**
+![Vista General ESP32](Evidencias/3.jpeg)
 
-> **[AQUÍ VA LA FOTOGRAFÍA DE LA PRUEBA EN TIEMPO REAL / ACTIVACIÓN DEL ACTUADOR]**
+**2. Prueba en estado normal (`OK` — puente de `GPIO 34` conectado a `GND`, lectura `0`):**
+![Prueba en GND](Evidencias/GND.jpeg)
 
-`![Prueba en Tiempo Real y Monitor Serie](prueba_funcionamiento_p3.jpeg)`
-
+**3. Prueba en estado de alerta (`>> ALERTA` — puente de `GPIO 34` conectado a `3V3`, lectura `4095`):**
+![Prueba en 3V3](Evidencias/3v3.jpeg)
 ---
 
 #### **4.3. Enlace Directo al Video Demostrativo (Máximo 3 minutos)**
